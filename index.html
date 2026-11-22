@@ -44,16 +44,16 @@
 <body>
 <main class="game">
   <header>
-    <div class="brand"><div class="logo">💧</div><div><h1>Splash Landing</h1><p class="subtitle">A tiny aim-and-pour challenge</p></div></div>
-    <div class="badge">TAP AT THE RIGHT MOMENT</div>
+    <div class="brand"><div class="logo">💧</div><div><h1>Splash Landing</h1><p class="subtitle">An endless timing challenge</p></div></div>
+    <div class="badge" id="levels">CUP LV 1 · TARGET LV 1</div>
   </header>
   <section class="stage" aria-label="Game area">
     <canvas id="game" aria-label="Tap the moving cup to pour water into the target"></canvas>
-    <div class="hud"><div class="pill">CUP <strong id="remaining">100%</strong></div><div class="pill">TARGET <strong id="score">0%</strong></div></div>
-    <div class="toast" id="toast">Nice splash!<small>Target filled — play again?</small></div>
+    <div class="hud"><div class="pill">CUP <strong id="remaining">100%</strong></div><div class="pill">ROUND <strong id="round">1</strong></div><div class="pill">TARGET <strong id="score">0%</strong></div></div>
+    <div class="toast" id="toast">ROUND CLEAR!<small>Next round loading…</small></div>
   </section>
   <section class="bottom">
-    <div class="control"><div class="control-head"><label>Ready, aim, splash!</label><span id="status">WAIT FOR IT</span></div><p class="hint">Tap the cup as it passes just left of the target. Each tap pours a little burst!</p></div>
+    <div class="control"><div class="control-head"><label>Ready, aim, splash!</label><span id="status">WAIT FOR IT</span></div><p class="hint">Tap the cup, press POUR, or hit Space. Guide each splash around the sloped ramps!</p></div>
     <div class="actions"><button class="pour" id="pour" type="button">💧 POUR</button><button class="reset" id="reset" type="button">↻</button></div>
   </section>
 </main>
@@ -65,25 +65,32 @@
   const statusLabel = document.querySelector('#status');
   const remainLabel = document.querySelector('#remaining');
   const scoreLabel = document.querySelector('#score');
+  const roundLabel = document.querySelector('#round');
+  const levelsLabel = document.querySelector('#levels');
   const toast = document.querySelector('#toast');
   const stage = canvas.parentElement;
   let w=0,h=0,dpr=1, angle=0, cup=100, caught=0, particles=[], last=0, spawnClock=0, won=false;
-  let cupX=0, cupDirection=1, pourTime=0, cooldown=0;
+  let cupX=0, cupDirection=1, pourTime=0, cooldown=0, round=1, targetX=0, clearTimer=0, elapsed=0;
   const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+  const cupLevel=()=>Math.min(10,Math.floor((round-1)/5)+1);
+  const targetLevel=()=>Math.min(10,Math.max(1,Math.floor(Math.max(0,round-46)/5)+1));
   function resize(){
     const r=stage.getBoundingClientRect(); dpr=Math.min(devicePixelRatio||1,2);
     w=r.width; h=r.height; canvas.width=Math.round(w*dpr); canvas.height=Math.round(h*dpr);
-    cupX=clamp(cupX||48,46,w-46);
+    cupX=clamp(cupX||48,46,w-46);targetX=targetX||w/2;
     ctx.setTransform(dpr,0,0,dpr,0,0);
   }
   new ResizeObserver(resize).observe(stage); resize();
   function roundRect(x,y,width,height,r,fill,stroke){ctx.beginPath();ctx.roundRect(x,y,width,height,r);if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.stroke();}}
   function updateHUD(){
     remainLabel.textContent=Math.round(cup)+'%';scoreLabel.textContent=Math.round(caught)+'%';
-    statusLabel.textContent=won?'SPLASH!':pourTime>0?'POURING!':cup<=0?'EMPTY':cooldown>0?'GET READY':'WAIT FOR IT';
+    roundLabel.textContent=round;
+    levelsLabel.textContent=`CUP LV ${cupLevel()} · TARGET LV ${targetLevel()}`;
+    statusLabel.textContent=won?'ROUND CLEAR!':pourTime>0?'POURING!':cup<=0?'EMPTY':cooldown>0?'GET READY':'WAIT FOR IT';
     pourButton.disabled=won||cup<=0||pourTime>0||cooldown>0;
   }
-  function reset(){angle=0;cup=100;caught=0;particles=[];spawnClock=0;pourTime=0;cooldown=0;won=false;cupX=46;cupDirection=1;toast.classList.remove('show');updateHUD();}
+  function resetRound(){angle=0;cup=100;caught=0;particles=[];spawnClock=0;pourTime=0;cooldown=0;won=false;clearTimer=0;cupX=46;cupDirection=1;toast.classList.remove('show');updateHUD();}
+  function reset(){round=1;targetX=w/2;resetRound();}
   function startPour(){
     if(won||cup<=0||pourTime>0||cooldown>0)return;
     angle=58;pourTime=1.05;cooldown=1.35;spawnClock=0;updateHUD();
@@ -130,8 +137,35 @@
     ctx.restore();
   }
   function geometry(){
-    const cx=w/2, targetY=h*.66, rx=Math.min(68,w*.18), cupY=h*.27;
+    const cx=targetX||w/2, targetY=h*.66, rx=Math.min(68,w*.18), cupY=h*.27;
     return {cx,targetY,rx,cupX,cupY};
+  }
+  function slopes(){
+    return [
+      {x1:w*.28,y1:h*.43,x2:w*.49,y2:h*.50},
+      {x1:w*.57,y1:h*.55,x2:w*.78,y2:h*.47}
+    ];
+  }
+  function drawSlopes(){
+    slopes().forEach(s=>{
+      const thickness=12;
+      ctx.beginPath();ctx.moveTo(s.x1,s.y1);ctx.lineTo(s.x2,s.y2);ctx.lineTo(s.x2,s.y2+thickness);ctx.lineTo(s.x1,s.y1+thickness);ctx.closePath();
+      ctx.fillStyle='#d9e5ee';ctx.fill();ctx.strokeStyle='#9fb5c7';ctx.lineWidth=2;ctx.stroke();
+      ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(s.x1,s.y1+3);ctx.lineTo(s.x2,s.y2+3);ctx.stroke();
+    });
+  }
+  function hitSlope(p,previousY){
+    const ramps=slopes();
+    for(let i=0;i<ramps.length;i++){
+      const s=ramps[i];
+      if(p.ignoreSlope===i){if(p.x<s.x1-5||p.x>s.x2+5)p.ignoreSlope=-1;else continue;}
+      if(p.x<s.x1||p.x>s.x2)continue;
+      const surface=s.y1+(s.y2-s.y1)*(p.x-s.x1)/(s.x2-s.x1);
+      if(previousY+p.r<surface&&p.y+p.r>=surface){
+        p.y=surface-p.r-1;p.vy=30;p.vx+=Math.sign(s.y2-s.y1)*105;p.ignoreSlope=i;return true;
+      }
+    }
+    return false;
   }
   function makeDrop(g){
     const rad=angle*Math.PI/180;
@@ -141,25 +175,28 @@
     particles.push({x,y,vx:24,vy:40,age:0,r:3+Math.random()*2});
   }
   function draw(){
-    const dt=Math.min(.04,delta/1000);
-    const speed=Math.max(95,Math.min(150,w*.28));
-    if(pourTime<=0){
+    const dt=Math.min(.04,delta/1000);elapsed+=dt;
+    const speed=Math.max(95,Math.min(150,w*.28))*(1+(cupLevel()-1)*.12);
+    if(pourTime<=0&&!won){
       cupX+=cupDirection*speed*dt;
       if(cupX>=w-46){cupX=w-46;cupDirection=-1;}
       if(cupX<=46){cupX=46;cupDirection=1;}
     }
-    if(pourTime>0){pourTime=Math.max(0,pourTime-dt);if(pourTime===0)angle=0;}
+    if(pourTime>0&&!won){pourTime=Math.max(0,pourTime-dt);if(pourTime===0)angle=0;}
     if(cooldown>0)cooldown=Math.max(0,cooldown-dt);
-    angle=pourTime>0?58:0;
+    if(cupLevel()>=10){const lvl=targetLevel();const range=Math.min(w*.30,w*(.035+(lvl-1)*.023));targetX=w/2+Math.sin(elapsed*(.55+lvl*.12))*range;}else targetX=w/2;
+    if(won&&clearTimer>0){clearTimer-=dt;if(clearTimer<=0){round++;resetRound();}}
+    angle=pourTime>0&&!won?58:0;
     drawBackground();const g=geometry();
     const targetTop=g.targetY;
     // gentle ground shadow
     ctx.fillStyle='#f1f5f8';ctx.beginPath();ctx.ellipse(g.cx,targetTop+104,g.rx+32,9,0,0,Math.PI*2);ctx.fill();
-    drawTarget(g.cx,targetTop,g.rx);
+    drawTarget(g.cx,targetTop,g.rx);drawSlopes();
     // Stream drops: only spawn when the cup is tipped far enough to pour.
     if(pourTime>0&&cup>0&&!won){spawnClock+=Math.min(40,delta);while(spawnClock>=72){spawnClock-=72;makeDrop(g);cup=Math.max(0,cup-1.6);}}
     for(let i=particles.length-1;i>=0;i--){
-      const p=particles[i];p.age+=dt;p.vy+=420*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
+      const p=particles[i],previousY=p.y;p.age+=dt;p.vy+=420*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
+      hitSlope(p,previousY);
       if(p.y>=targetTop+41&&p.y<=targetTop+67){
         if(Math.abs(p.x-g.cx)<g.rx*.43){caught=Math.min(100,caught+2.3);}
         particles.splice(i,1);continue;
@@ -171,7 +208,7 @@
     drawCup(g.cupX,g.cupY);
     // Aim marker gently indicates where the stream is headed while pouring.
     if(pourTime>0&&cup>0){const dropY=g.cupY+Math.sin(angle*Math.PI/180)*34-Math.cos(angle*Math.PI/180)*17;const fall=(targetTop+54-dropY);const flight=(-40+Math.sqrt(40*40+2*420*fall))/420;const aimX=g.cupX+Math.cos(angle*Math.PI/180)*34+Math.sin(angle*Math.PI/180)*18+24*flight;ctx.strokeStyle='#d3eaf8';ctx.setLineDash([4,6]);ctx.beginPath();ctx.moveTo(aimX,targetTop-7);ctx.lineTo(aimX,targetTop+4);ctx.stroke();ctx.setLineDash([]);}
-    if(caught>=60&&!won){won=true;toast.classList.add('show');}
+    if(caught>=60&&!won){won=true;pourTime=0;clearTimer=1.5;toast.innerHTML=`ROUND ${round} CLEAR!<small>Next round loading…</small>`;toast.classList.add('show');}
     updateHUD();
   }
   let delta=16;
