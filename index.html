@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#ffffff" />
+<title>Splash Landing</title>
+<style>
+  :root { color-scheme: light; --ink:#29344b; --blue:#2687e8; --muted:#758198; --line:#e7edf4; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; width:100%; min-height:100%; background:#fff; font-family:ui-rounded,"Trebuchet MS",system-ui,sans-serif; color:var(--ink); }
+  body { min-height:100svh; display:flex; justify-content:center; }
+  .game { width:min(100%,1000px); min-height:100svh; display:flex; flex-direction:column; padding:clamp(14px,3vw,26px) clamp(14px,4vw,36px) max(14px,env(safe-area-inset-bottom)); gap:12px; }
+  header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .brand { display:flex; align-items:center; gap:10px; }
+  .logo { width:42px;height:42px;border-radius:14px;background:#eaf5ff;display:grid;place-items:center;font-size:23px; }
+  h1 { margin:0; font-size:clamp(19px,4vw,25px); letter-spacing:-.7px; }
+  .subtitle { margin:2px 0 0;color:var(--muted);font-size:13px; }
+  .badge { padding:8px 12px;border:1px solid var(--line);border-radius:999px;color:#66738b;font-size:12px;font-weight:700;white-space:nowrap; }
+  .stage { position:relative; flex:1; min-height:320px; max-height:610px; overflow:hidden; border:1px solid #edf1f5; border-radius:24px; background:#fff; box-shadow:0 12px 40px #344c7010; }
+  canvas { width:100%;height:100%;display:block;touch-action:none; }
+  .hud { position:absolute;left:16px;right:16px;top:14px;display:flex;justify-content:space-between;pointer-events:none; }
+  .pill { background:#ffffffec;border:1px solid var(--line);border-radius:14px;padding:8px 11px;font-size:12px;color:#66738b;box-shadow:0 3px 12px #344c700b; }
+  .pill strong { color:var(--ink);font-size:14px; }
+  .bottom { display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;padding:2px 2px 0; }
+  .control { border:1px solid var(--line);border-radius:18px;padding:12px 15px;background:#fbfdff; }
+  .control-head {display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:10px;}
+  label {font-size:13px;font-weight:800;}
+  #angleValue { color:var(--blue);font-size:13px;font-weight:800; }
+  input[type=range] { width:100%;accent-color:var(--blue);height:22px;touch-action:pan-x; }
+  .hint { margin:7px 0 0;font-size:12px;color:var(--muted); }
+  button { font:inherit; border:0; cursor:pointer; touch-action:manipulation; }
+  .reset { height:48px;padding:0 18px;border:1px solid var(--line);border-radius:15px;background:#fff;color:#4f5d74;font-weight:800; }
+  .reset:active { transform:scale(.97); }
+  .toast { position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:16px 21px;border-radius:18px;background:#fff;box-shadow:0 10px 40px #23405c24;text-align:center;font-size:20px;font-weight:900;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .2s; }
+  .toast.show {opacity:1;}
+  .toast small {display:block;margin-top:3px;font-size:12px;font-weight:600;color:var(--muted);}
+  @media(max-width:540px) { .game {gap:9px;} .logo{width:37px;height:37px;} .stage{min-height:320px;border-radius:19px;} .bottom{grid-template-columns:1fr auto;gap:8px;} .control{padding:10px 11px;} .reset{padding:0 12px;height:44px;} .badge{font-size:11px;padding:7px 9px;} }
+</style>
+</head>
+<body>
+<main class="game">
+  <header>
+    <div class="brand"><div class="logo">💧</div><div><h1>Splash Landing</h1><p class="subtitle">A tiny aim-and-pour challenge</p></div></div>
+    <div class="badge">AIM · TIP · SPLASH</div>
+  </header>
+  <section class="stage" aria-label="Game area">
+    <canvas id="game" aria-label="Tip the cup and land water in the target"></canvas>
+    <div class="hud"><div class="pill">CUP <strong id="remaining">100%</strong></div><div class="pill">TARGET <strong id="score">0%</strong></div></div>
+    <div class="toast" id="toast">Nice splash!<small>Target filled — play again?</small></div>
+  </section>
+  <section class="bottom">
+    <div class="control"><div class="control-head"><label for="tilt">Cup tilt</label><span id="angleValue">0°</span></div><input id="tilt" type="range" min="0" max="75" value="0" aria-label="Cup tilt angle"><p class="hint">Find the angle that sends the stream into the middle. (← → to adjust)</p></div>
+    <button class="reset" id="reset" type="button">↻ Reset</button>
+  </section>
+</main>
+<script>
+(() => {
+  const canvas = document.querySelector('#game');
+  const ctx = canvas.getContext('2d');
+  const slider = document.querySelector('#tilt');
+  const angleLabel = document.querySelector('#angleValue');
+  const remainLabel = document.querySelector('#remaining');
+  const scoreLabel = document.querySelector('#score');
+  const toast = document.querySelector('#toast');
+  const stage = canvas.parentElement;
+  let w=0,h=0,dpr=1, angle=0, cup=100, caught=0, particles=[], last=0, spawnClock=0, won=false;
+  const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+  function resize(){
+    const r=stage.getBoundingClientRect(); dpr=Math.min(devicePixelRatio||1,2);
+    w=r.width; h=r.height; canvas.width=Math.round(w*dpr); canvas.height=Math.round(h*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  new ResizeObserver(resize).observe(stage); resize();
+  function roundRect(x,y,width,height,r,fill,stroke){ctx.beginPath();ctx.roundRect(x,y,width,height,r);if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.stroke();}}
+  function updateHUD(){remainLabel.textContent=Math.round(cup)+'%';scoreLabel.textContent=Math.round(caught)+'%';angleLabel.textContent=angle+'°';}
+  function reset(){angle=0;cup=100;caught=0;particles=[];spawnClock=0;won=false;toast.classList.remove('show');slider.value=0;updateHUD();}
+  slider.addEventListener('input',()=>{angle=Number(slider.value);updateHUD();});
+  document.querySelector('#reset').addEventListener('click',reset);
+  window.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();angle=clamp(angle+(e.key==='ArrowRight'?1:-1),0,75);slider.value=angle;updateHUD();}
+    if(e.key.toLowerCase()==='r')reset();
+  });
+  function drawBackground(){
+    ctx.clearRect(0,0,w,h);ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);
+    // faint floor line and quiet decorative sparkles
+    ctx.strokeStyle='#f0f3f7';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(w*.08,h*.88);ctx.lineTo(w*.92,h*.88);ctx.stroke();
+    ctx.fillStyle='#e6f4ff';[[.12,.3,3],[.86,.31,4],[.2,.65,3],[.78,.53,3],[.89,.72,2]].forEach(([x,y,r])=>{ctx.beginPath();ctx.arc(w*x,h*y,r,0,Math.PI*2);ctx.fill();});
+  }
+  function drawCup(cupX,cupY){
+    ctx.save();ctx.translate(cupX,cupY);ctx.rotate(angle*Math.PI/180);
+    // Cup body first, then the visible water line inside it.
+    ctx.beginPath();ctx.moveTo(-35,-19);ctx.lineTo(-27,35);ctx.quadraticCurveTo(0,42,27,35);ctx.lineTo(35,-19);ctx.lineTo(27,-19);ctx.lineTo(22,28);ctx.quadraticCurveTo(0,33,-22,28);ctx.lineTo(-27,-19);ctx.closePath();ctx.fillStyle='#eef8ff';ctx.fill();
+    const waterY=24-(cup/100)*35;
+    ctx.save();ctx.beginPath();ctx.moveTo(-25,waterY);ctx.quadraticCurveTo(0,waterY-4,25,waterY);ctx.lineTo(22,28);ctx.quadraticCurveTo(0,33,-22,28);ctx.closePath();ctx.fillStyle='#83d4ff';ctx.fill();ctx.restore();
+    ctx.strokeStyle='#71bce8';ctx.lineWidth=3;ctx.lineJoin='round';ctx.beginPath();ctx.moveTo(-35,-19);ctx.lineTo(-27,35);ctx.quadraticCurveTo(0,42,27,35);ctx.lineTo(35,-19);ctx.stroke();
+    ctx.strokeStyle='#a8ddfa';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(0,-19,35,7,0,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.ellipse(-13,10,3,7,-.2,0,Math.PI*2);ctx.fill();ctx.restore();
+  }
+  function drawTarget(cx,top,rx){
+    // friendly, abstract peach-shaped target: two round cheeks and a narrow center seam
+    ctx.save();
+    ctx.fillStyle='#fff1e9';ctx.beginPath();ctx.ellipse(cx,top+42,rx+18,57,0,Math.PI,Math.PI*2);ctx.lineTo(cx+rx+18,top+54);ctx.quadraticCurveTo(cx,top+116,cx-rx-18,top+54);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#ffbd9f';ctx.beginPath();ctx.ellipse(cx-rx*.48,top+39,rx*.64,42,-.08,0,Math.PI*2);ctx.ellipse(cx+rx*.48,top+39,rx*.64,42,.08,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#f59b83';ctx.beginPath();ctx.ellipse(cx-rx*.48,top+39,rx*.49,30,-.08,0,Math.PI*2);ctx.ellipse(cx+rx*.48,top+39,rx*.49,30,.08,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#b85d5f';ctx.lineWidth=4;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(cx,top+15);ctx.bezierCurveTo(cx-4,top+35,cx+4,top+48,cx,top+68);ctx.stroke();
+    // target ring at the landing point
+    ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.setLineDash([4,5]);ctx.beginPath();ctx.ellipse(cx,top+42,10,25,0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+    // small playful shorts waistband makes the character clearly cartoonish
+    ctx.fillStyle='#9ac8ef';ctx.beginPath();ctx.moveTo(cx-rx-16,top+79);ctx.quadraticCurveTo(cx,top+102,cx+rx+16,top+79);ctx.lineTo(cx+rx+10,top+97);ctx.quadraticCurveTo(cx,top+116,cx-rx-10,top+97);ctx.closePath();ctx.fill();
+    ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx-rx*.7,top+94);ctx.quadraticCurveTo(cx,top+106,cx+rx*.7,top+94);ctx.stroke();
+    ctx.restore();
+  }
+  function geometry(){
+    const cx=w/2, targetY=h*.66, rx=Math.min(68,w*.18), cupX=cx-105, cupY=h*.27;
+    return {cx,targetY,rx,cupX,cupY};
+  }
+  function makeDrop(g){
+    const rad=angle*Math.PI/180;
+    // The low/right rim becomes the spout as the player tips the cup.
+    const x=g.cupX+Math.cos(rad)*34+Math.sin(rad)*18;
+    const y=g.cupY+Math.sin(rad)*34-Math.cos(rad)*17;
+    particles.push({x,y,vx:Math.sin(rad)*160+22,vy:40,age:0,r:3+Math.random()*2});
+  }
+  function draw(){
+    drawBackground();const g=geometry();
+    const targetTop=g.targetY;
+    // gentle ground shadow
+    ctx.fillStyle='#f1f5f8';ctx.beginPath();ctx.ellipse(g.cx,targetTop+104,g.rx+32,9,0,0,Math.PI*2);ctx.fill();
+    drawTarget(g.cx,targetTop,g.rx);
+    // Stream drops: only spawn when the cup is tipped far enough to pour.
+    if(angle>=22&&cup>0&&!won){spawnClock+=Math.min(40,delta);const interval=angle>32?72:120;while(spawnClock>=interval){spawnClock-=interval;makeDrop(g);cup=Math.max(0,cup-1.6);}}
+    const dt=Math.min(.04,delta/1000);
+    for(let i=particles.length-1;i>=0;i--){
+      const p=particles[i];p.age+=dt;p.vy+=420*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
+      if(p.y>=targetTop+41&&p.y<=targetTop+67){
+        if(Math.abs(p.x-g.cx)<g.rx*.43){caught=Math.min(100,caught+2.3);}
+        particles.splice(i,1);continue;
+      }
+      if(p.y>h*.91||p.x<-20||p.x>w+20){particles.splice(i,1);continue;}
+      ctx.fillStyle='#43aef3';ctx.beginPath();ctx.ellipse(p.x,p.y,p.r*.78,p.r*1.25,0,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#c9efff';ctx.beginPath();ctx.arc(p.x-p.r*.25,p.y-p.r*.3,1.3,0,Math.PI*2);ctx.fill();
+    }
+    drawCup(g.cupX,g.cupY);
+    // Aim marker gently indicates where the stream is headed while pouring.
+    if(angle>=22&&cup>0){const t=(targetTop-g.cupY)/Math.max(1,Math.sin(angle*Math.PI/180)*160+40);const aimX=g.cupX+Math.cos(angle*Math.PI/180)*34+Math.sin(angle*Math.PI/180)*18+(Math.sin(angle*Math.PI/180)*160+22)*t;ctx.strokeStyle='#d3eaf8';ctx.setLineDash([4,6]);ctx.beginPath();ctx.moveTo(aimX,targetTop-7);ctx.lineTo(aimX,targetTop+4);ctx.stroke();ctx.setLineDash([]);}
+    if(caught>=60&&!won){won=true;toast.classList.add('show');}
+    updateHUD();
+  }
+  let delta=16;
+  function frame(t){delta=last?Math.min(40,t-last):16;last=t;draw();requestAnimationFrame(frame);}
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
