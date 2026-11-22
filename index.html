@@ -79,9 +79,9 @@ const names={breakfast:'Make breakfast',showers:'Get showers done',laundry:'Wash
 const taskOrder=['breakfast','showers','laundry','dishes'];
 const tasks={breakfast:false,showers:false,laundry:false,dishes:false,bedElaina:false,bedElsie:false,bedEllerle:false};
 const girls=[
- {name:'Elaina · 12',short:'Elaina',x:455,y:120,tx:135,ty:130,color:'#aa5d72',agenda:'coming to wake Dad',speed:38,mood:55,history:0,age:12},
- {name:'Elsie · 9',short:'Elsie',x:525,y:145,tx:155,ty:150,color:'#5572a6',agenda:'coming to wake Dad',speed:34,mood:65,history:0,age:9},
- {name:'Ellerle · 5',short:'Ellerle',x:430,y:210,tx:175,ty:170,color:'#d19439',agenda:'coming to wake Dad',speed:29,mood:75,history:0,age:5},
+ {name:'Elaina · 12',short:'Elaina',x:455,y:120,tx:135,ty:130,color:'#aa5d72',agenda:'coming to wake Dad',speed:38,mood:55,history:0,age:12,tripCooldown:0},
+ {name:'Elsie · 9',short:'Elsie',x:525,y:145,tx:155,ty:150,color:'#5572a6',agenda:'coming to wake Dad',speed:34,mood:65,history:0,age:9,tripCooldown:0},
+ {name:'Ellerle · 5',short:'Ellerle',x:430,y:210,tx:175,ty:170,color:'#d19439',agenda:'coming to wake Dad',speed:29,mood:75,history:0,age:5,tripCooldown:0},
  {name:'Charlie · Great Pyrenees',short:'Charlie',x:755,y:580,tx:755,ty:580,color:'#fff1d2',agenda:'napping',speed:17,mood:80,history:0,dog:true,age:8}
 ];
 let focus=100,temper=100,elapsed=0,last=performance.now(),messageTimer=0,ended='',washTimer=0,chaos=0,opening=true,paused=false,breakTimer=0;
@@ -124,7 +124,7 @@ function drawProp(p){let{x,y,w,h,type,label,task,distraction}=p;ctx.save();
 function drawPerson(x,y,color,label,dog=false,isDad=false,bubble='',bubbleLeft=0){ctx.save();ctx.translate(x,y);if(dog){ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(0,0,18,12,0,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(15,-3,8,0,7);ctx.fill();ctx.fillStyle='#654f3e';ctx.beginPath();ctx.arc(17,-4,1.3,0,7);ctx.fill()}else if(isDad&&!player.awake){ctx.fillStyle='#0004';ctx.beginPath();ctx.ellipse(0,11,25,7,0,0,7);ctx.fill();ctx.fillStyle='#416b78';ctx.beginPath();ctx.ellipse(0,0,24,9,0,0,7);ctx.fill();ctx.fillStyle='#d9aa81';ctx.beginPath();ctx.arc(18,-2,7,0,7);ctx.fill();ctx.fillStyle='#47362b';ctx.beginPath();ctx.arc(20,-5,6,Math.PI,0);ctx.fill()}else{ctx.fillStyle='#0004';ctx.beginPath();ctx.ellipse(0,12,12,5,0,0,7);ctx.fill();ctx.fillStyle=isDad?'#416b78':color;ctx.beginPath();ctx.ellipse(0,2,11,14,0,0,7);ctx.fill();ctx.fillStyle=isDad?'#d9aa81':'#efc8a4';ctx.beginPath();ctx.arc(0,-12,8,0,7);ctx.fill();ctx.fillStyle='#47362b';ctx.beginPath();ctx.arc(0,-15,8,Math.PI,0);ctx.fill()}
  ctx.fillStyle=isDad?'#fff': '#342f2b';ctx.font='bold 11px system-ui';ctx.textAlign='center';ctx.fillText(label,0,dog?29:27);
  if(bubble&&bubbleLeft>0){ctx.font='bold 12px system-ui';const tw=ctx.measureText(bubble).width;rounded(-tw/2-8,-48,tw+16,24,8,'#fff8e4','#5d5548');ctx.fillStyle='#3b342b';ctx.fillText(bubble,0,-31)}ctx.restore()}
-function draw(){roomDraw();props.forEach(drawProp);girls.forEach(g=>drawPerson(g.x,g.y,g.color,g.short,g.dog,g.bubble||'',g.bubbleLeft||0));drawPerson(player.x,player.y,'#416b78','Dad',false,true);
+function draw(){roomDraw();props.forEach(drawProp);girls.forEach(g=>drawPerson(g.x,g.y,g.color,g.short,g.dog,false,g.bubble||'',g.bubbleLeft||0));drawPerson(player.x,player.y,'#416b78','Dad',false,true);
  // Highlight nearby station and emphasize every usable door opening.
  const near=nearest();if(near){const p=near.p;ctx.strokeStyle='#fff3a7';ctx.lineWidth=3;ctx.setLineDash([6,4]);ctx.strokeRect(p.x-4,p.y-4,p.w+8,p.h+8);ctx.setLineDash([])}
  ctx.fillStyle='#eee2c3';ctx.font='11px system-ui';ctx.textAlign='center';ctx.fillText('OPEN DOOR',158,294);ctx.fillText('OPEN DOOR',477,294);ctx.fillText('OPEN DOOR',158,394);ctx.fillText('OPEN DOOR',477,394);ctx.fillText('OPEN DOOR',665,355);ctx.fillText('OPEN DOOR',665,496);ctx.fillText('EXIT',976,354);
@@ -145,7 +145,7 @@ function interact(){if(ended||paused||opening)return;const found=nearest();if(!f
  }
  const current=taskOrder.find(k=>!tasks[k]);if(p.task.startsWith('bed')&&taskOrder.every(k=>tasks[k])){}else if(p.task!==current&&taskOrder.includes(p.task)){toast(`Do ${names[current].toLowerCase()} first.`);return}
  if(p.task==='laundry'){if(!tasks.laundry&&washTimer<=0){washTimer=6;toast('Laundry started—come back when the cycle finishes.')}else if(washTimer>0)toast(`Laundry is running (${Math.ceil(washTimer)}s).`);else toast('Laundry is already finished!');return}
- if(p.task==='breakfast'){const seated=girls.filter(g=>!g.dog&&!g.asleep).filter(g=>g.x>380&&g.x<610&&g.y>510&&g.y<650).length;if(seated<3){girls.filter(g=>!g.dog&&!g.asleep).forEach((g,i)=>{g.tx=430+i*55;g.ty=610;g.agenda='sitting down for breakfast';g.bubble='Taking my seat';g.bubbleLeft=2.8});toast('Everyone needs to sit at the dining table first.');return}}
+ if(p.task==='breakfast'){const seated=girls.filter(g=>!g.dog&&!g.asleep).filter(g=>g.seatedAtTable).length;if(seated<3){girls.filter(g=>!g.dog&&!g.asleep).forEach((g,i)=>{g.seatedAtTable=false;g.route=g.x>680?[[800,350],[640,350],[477,350],[477,420],[430+i*55,610]]:[[477,260],[477,350],[477,420],[430+i*55,610]];g.agenda='sitting down for breakfast';g.bubble='Taking my seat';g.bubbleLeft=2.8});toast('Everyone needs to sit at the dining table first.');return}}
  if(tasks[p.task]){toast('That chore is already done.');return}
   const childChoices=girls.filter(g=>!g.dog&&!g.asleep).map(g=>({
     label:`${g.short} · mood ${Math.round(g.mood)}%`,
@@ -165,8 +165,20 @@ function interact(){if(ended||paused||opening)return;const found=nearest();if(!f
 
 function delegateTask(name,task,style){const g=girls.find(x=>x.short===name);if(g&&respond(g,style,task))completeTask(task);else toast(`${g?g.short:'Child'} did not complete the chore; Dad can try another approach.`)}
 function completeTask(task){tasks[task]=true;if(task.startsWith('bed')){const n=task.slice(3);const g=girls.find(g=>g.short.toLowerCase()===n.toLowerCase());if(g){g.x=props.find(p=>p.task===task).x+40;g.y=props.find(p=>p.task===task).y+25;g.agenda='asleep in bed';g.asleep=true}}else if(task==='showers'){girls.filter(g=>!g.dog).forEach(g=>g.agenda='fresh from a shower')}else{focus=Math.min(100,focus+9);temper=Math.min(100,temper+4)}toast(`${names[task]} — completed!`);updateUI()}
-// Wall collision uses capsule-like player bounds; gaps are intentionally wide enough to cross smoothly.
+// Wall collision and room-to-room navigation. NPCs follow explicit doorway waypoints,
+// then use collision-aware movement inside each room instead of walking through walls.
 function blockedChild(x,y,g){const old={x:g.x,y:g.y};g.x=x;g.y=y;const bad=blocked(x,y);g.x=old.x;g.y=old.y;return bad}
+const roomLinks={
+ dad:[['girls',[315,166],[349,166]],['hall',[158,280],[158,314]]],
+ girls:[['dad',[349,166],[315,166]],['hall',[477,280],[477,314]]],
+ hall:[['dad',[158,314],[158,280]],['girls',[477,314],[477,280]],['bath',[158,383],[158,411]],['kitchen',[477,383],[477,411]],['living',[648,350],[682,350]]],
+ bath:[['hall',[158,411],[158,383]]],
+ kitchen:[['hall',[477,411],[477,383]],['living',[648,495],[682,495]]],
+ living:[['hall',[682,350],[648,350]],['kitchen',[682,495],[648,495]]]
+};
+function roomAt(x,y){if(x>665)return'living';if(y<297)return x<332?'dad':'girls';if(y<397)return'hall';return x<332?'bath':'kitchen'}
+function setDestination(g,x,y){const from=roomAt(g.x,g.y),to=roomAt(x,y),queue=[[from,[]]],seen=new Set([from]);let path=[];while(queue.length){const [room,links]=queue.shift();if(room===to){path=links;break}for(const link of roomLinks[room]||[]){if(!seen.has(link[0])){seen.add(link[0]);queue.push([link[0],[...links,link]])}}}g.route=[];for(const link of path)g.route.push(link[1],link[2]);g.route.push([x,y]);g.tx=x;g.ty=y}
+function moveActor(g,dt,speedScale=1){if(!g.route||!g.route.length)return;const [tx,ty]=g.route[0],dx=tx-g.x,dy=ty-g.y,d=Math.hypot(dx,dy);if(d<=2){g.x=tx;g.y=ty;g.route.shift();return}const step=Math.min(d,g.speed*speedScale*dt),nx=g.x+dx/d*step,ny=g.y+dy/d*step;if(!blockedChild(nx,ny,g)){g.x=nx;g.y=ny}}
 function blocked(x,y){const r=player.r;const segs=[
  [20,20,980,20],[20,20,20,680],[20,680,980,680],[980,20,980,298],[980,380,980,680],
  ...walls
@@ -177,7 +189,7 @@ function step(now){const dt=Math.min(.04,(now-last)/1000);last=now;if(!ended&&!p
  // Opening: all three children walk continuously toward Dad's bed.
  if(opening){let arrived=0;girls.filter(g=>!g.dog).forEach(g=>{g.tx=145+(arrived++)*20;g.ty=145;const dx=g.tx-g.x,dy=g.ty-g.y,d=Math.hypot(dx,dy);if(d>2){const step=Math.min(d,g.speed*dt);g.x+=dx/d*step;g.y+=dy/d*step}else g.agenda='ready to wake Dad'});if(girls.slice(0,3).every(g=>Math.hypot(g.tx-g.x,g.ty-g.y)<3)&&elapsed>1){opening=false;player.awake=true;openDialog('Good morning, Dad','Elaina, Elsie, and Ellerle walk into the bedroom and wake you for breakfast. Today’s chores must happen in order.',[{label:'Get out of bed',run:()=>{player.x=135;player.y=150;toast('Breakfast is the first chore.')}},{label:'Ask for five quiet minutes',run:()=>temper=Math.min(100,temper+8)}])}}else{
  // Later, distracted children move continuously toward changing targets instead of teleporting.
- if(Math.floor(elapsed/10)!==Math.floor((elapsed-dt)/10)){const g=girls.filter(g=>!g.dog&&!g.asleep)[Math.floor(Math.random()*3)];if(g){const opts=[[800,430,'watching TV'],[750,570,'playing with toys'],[900,570,'reading a book'],[500,350,'wandering in the hall']];const o=opts[Math.floor(Math.random()*opts.length)];g.tx=o[0];g.ty=o[1];g.agenda=o[2]}}girls.forEach(g=>{if(g.asleep||g.dog)return;const dx=g.tx-g.x,dy=g.ty-g.y,d=Math.hypot(dx,dy);if(d>2){const step=Math.min(d,g.speed*dt);const nx=g.x+dx/d*step,ny=g.y+dy/d*step;if(!blockedChild(nx,ny,g)){g.x=nx;g.y=ny}}});}
+ if(Math.floor(elapsed/10)!==Math.floor((elapsed-dt)/10)){const wandering=girls.filter(g=>!g.dog&&!g.asleep&&!g.route&&!g.seatedAtTable);const g=wandering[Math.floor(Math.random()*wandering.length)];if(g){const opts=[[800,430,'watching TV'],[750,570,'playing with toys'],[900,570,'reading a book'],[500,350,'wandering in the hall']];const o=opts[Math.floor(Math.random()*opts.length)];g.tx=o[0];g.ty=o[1];g.agenda=o[2]}}girls.forEach(g=>{if(g.asleep||g.dog)return;if(g.route&&g.route.length){const target=g.route[0];g.tx=target[0];g.ty=target[1]}const dx=g.tx-g.x,dy=g.ty-g.y,d=Math.hypot(dx,dy);if(d>2){const step=Math.min(d,g.speed*dt);const nx=g.x+dx/d*step,ny=g.y+dy/d*step;if(!blockedChild(nx,ny,g)){g.x=nx;g.y=ny}}else if(g.route&&g.route.length){g.route.shift();if(!g.route.length){g.seatedAtTable=true;g.agenda='sitting down for breakfast';g.bubble='Ready to eat';g.bubbleLeft=2.5}}});}
  chaos=Math.max(0,chaos-dt*.3);
  const charlie=girls.find(g=>g.dog);if(charlie){charlie.bubbleLeft=Math.max(0,(charlie.bubbleLeft||0)-dt);charlieTimer.next-=dt;if(charlieTimer.next<=0){charlieTimer.action=Math.random()<.58?'nap':'bark';if(charlieTimer.action==='bark'){charlie.tx=900;charlie.ty=360;charlie.agenda='barking at the window';charlie.bubble='Woof? Nothing…';charlie.bubbleLeft=4;charlieTimer.barkLeft=4}else{const spots=[[280,350],[560,520],[830,550],[210,220],[620,350]];const s=spots[Math.floor(Math.random()*spots.length)];charlie.tx=s[0];charlie.ty=s[1];charlie.agenda='napping in a doorway';charlie.bubble='Zzz…';charlie.bubbleLeft=5}charlieTimer.next=14+Math.random()*12}
   if(charlieTimer.action==='bark'){const d=Math.hypot(charlie.tx-charlie.x,charlie.ty-charlie.y);if(d>2){charlie.x+=((charlie.tx-charlie.x)/d)*charlie.speed*dt;charlie.y+=((charlie.ty-charlie.y)/d)*charlie.speed*dt}else{charlieTimer.barkLeft=(charlieTimer.barkLeft||0)-dt;if(charlieTimer.barkLeft<=0){charlieTimer.action='nap';charlie.agenda='napping';charlie.bubble='Back to napping';charlie.bubbleLeft=2}}}else{const d=Math.hypot(charlie.tx-charlie.x,charlie.ty-charlie.y);if(d>2){charlie.x+=((charlie.tx-charlie.x)/d)*charlie.speed*.7*dt;charlie.y+=((charlie.ty-charlie.y)/d)*charlie.speed*.7*dt}else charlie.agenda='napping'}
