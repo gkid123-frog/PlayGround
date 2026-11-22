@@ -119,27 +119,29 @@ const charlieTimer={next:7,action:'napping',barkLeft:0,checkCooldown:18,checkTar
      toast(`Almost time for ${meal}! Let’s get it ready.`);
     }
    }
-   const current=taskOrder.find(k=>!tasks[k]);
-   if(current!=='lunch'&&current!=='dinner')return;
-   const state=mealUrgency[current];
-   if(dayMinutes>=state.due&&state.lateStarted===null)state.lateStarted=elapsed;
-   const late=state.lateStarted===null?0:elapsed-state.lateStarted;
-   if(late>=35&&!state.lateWarned){
-    state.lateWarned=true;
-    toast(`It’s getting late for ${current}. The girls are getting cranky!`);
-   }
-   const step=Math.floor(Math.max(0,late-20)/12);
-   if(step>state.penaltyStep){
-    const stepIncrease=step-state.penaltyStep;
-    girls.filter(g=>!g.dog&&!g.asleep).forEach(g=>{
-     g.mood=Math.max(0,g.mood-stepIncrease*4);
-     g.history=Math.max(-5,g.history-0.5*stepIncrease);
-    });
-    state.penaltyStep=step;
-   }
-   if(late>=85&&!crankyMode){
-    crankyMode=true;
-    toast('The girls are too cranky to help now. Dad will have to handle the tasks himself.');
+   for(const meal of ['lunch','dinner']){
+    if(tasks[meal])continue;
+    const state=mealUrgency[meal];
+    if(dayMinutes>=state.due&&state.lateStarted===null)state.lateStarted=elapsed;
+    if(state.lateStarted===null)continue;
+    const late=elapsed-state.lateStarted;
+    if(late>=35&&!state.lateWarned){
+     state.lateWarned=true;
+     toast(`It’s getting late for ${meal}. The girls are getting cranky!`);
+    }
+    const step=Math.floor(Math.max(0,late-20)/12);
+    if(step>state.penaltyStep){
+     const stepIncrease=step-state.penaltyStep;
+     girls.filter(g=>!g.dog&&!g.asleep).forEach(g=>{
+      g.mood=Math.max(0,g.mood-stepIncrease*4);
+      g.history=Math.max(-5,g.history-0.5*stepIncrease);
+     });
+     state.penaltyStep=step;
+    }
+    if(late>=85&&!crankyMode){
+     crankyMode=true;
+     toast('The girls are too cranky to help now. Dad will have to handle the tasks himself.');
+    }
    }
   }
 function rounded(x,y,w,h,r,fill,stroke){ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()}}
@@ -261,7 +263,7 @@ function step(now){const dt=Math.min(.04,(now-last)/1000);last=now;if(started&&!
   if(charlieTimer.action==='nap'&&!charlie.route?.length&&charlieTimer.checkCooldown<=0){charlieTimer.checkCooldown=35+Math.random()*35;const candidates=girls.filter(g=>!g.dog&&!g.asleep&&(g.history<1||g.agenda.includes('resisting')));if(candidates.length&&Math.random()<.35){const target=candidates[Math.floor(Math.random()*candidates.length)];charlieTimer.action='check';charlieTimer.checkTarget=target;charlie.agenda=`checking on ${target.short}`;charlie.bubble='';charlie.bubbleLeft=0;setDestination(charlie,target.x-22,target.y+12,'charlie-check')}}
   if(charlie.route&&charlie.route.length){if(charlie.bubble==='Zzz…'){charlie.bubble='';charlie.bubbleLeft=0}if(moveActor(charlie,dt,.7)){routeArrived(charlie);if(charlieTimer.action==='nap'){charlie.agenda='napping';charlie.bubble='Zzz…';charlie.bubbleLeft=5}else if(charlieTimer.action==='check'){const target=charlieTimer.checkTarget;if(target){target.history=Math.min(3,target.history+.5);target.mood=Math.min(100,target.mood+3);target.bubble='Charlie nudges me along!';target.bubbleLeft=3}charlieTimer.nudgeLeft=2.5}}
   }else if(charlieTimer.action==='bark'){charlieTimer.barkLeft=(charlieTimer.barkLeft||0)-dt;if(charlieTimer.barkLeft<=0){charlieTimer.action='nap';charlie.agenda='napping';charlie.bubble='Back to napping';charlie.bubbleLeft=2}}else if(charlieTimer.action==='check'){charlieTimer.nudgeLeft-=dt;if(charlieTimer.nudgeLeft<=0){charlieTimer.action='nap';charlieTimer.checkTarget=null;charlie.agenda='napping'}}else charlie.agenda='napping'
-  girls.filter(g=>!g.dog&&!g.asleep).forEach(g=>{if(Math.hypot(g.x-charlie.x,g.y-charlie.y)<18&&charlieTimer.action==='nap'){g.bubble='hi charlie';g.bubbleLeft=2.5;g.mood=Math.min(100,g.mood+.35)}})}
+  girls.filter(g=>!g.dog&&!g.asleep).forEach(g=>{const distance=Math.hypot(g.x-charlie.x,g.y-charlie.y);if(distance>=100)g.charlieNear=false;if(distance<75&&charlieTimer.action==='nap'){if(!g.charlieNear){g.charlieNear=true;g.bubble='hi charlie';g.bubbleLeft=2.5;g.mood=Math.min(100,g.mood+2)}g.mood=Math.min(100,g.mood+dt*.5)}})}
  girls.filter(g=>!g.dog).forEach(g=>{g.bubbleLeft=Math.max(0,(g.bubbleLeft||0)-dt);if(g.mood<30&&(!g.bubble||g.bubbleLeft<=0)){g.bubble='I’m frustrated';g.bubbleLeft=2}});
  if(elapsed>15){focus=Math.max(0,focus-dt*.08);temper=Math.max(0,temper-dt*.006)}
   if(temper<=35&&!lowTemperWarned){lowTemperWarned=true;toast('⚠ Patience is running low—take a break or calm the girls!')}
