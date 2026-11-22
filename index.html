@@ -49,7 +49,7 @@ function drawMaker(){
 $('#makerNext').addEventListener('click',()=>{people[makerIndex].name=people[makerIndex].name.trim()||'Friend';if(makerIndex<people.length-1){makerIndex++;drawMaker();}else startGame();});
 $('#makerBack').addEventListener('click',()=>{if(makerIndex>0){makerIndex--;drawMaker();}else showScreen('setupScreen');});
 
-const canvas=$('#gameCanvas'),ctx=canvas.getContext('2d'),T=32;
+const canvas=$('#gameCanvas'),ctx=canvas.getContext('2d',{alpha:false});ctx.imageSmoothingEnabled=false;const T=32;
 const tasks=[
  {id:'cushions',map:'house',x:170,y:224,icon:'🛋️',label:'Straighten the couch cushions',short:'Tidy the living room',kind:'chore',done:false},
  {id:'dishes',map:'house',x:530,y:130,icon:'🍽️',label:'Help rinse the breakfast dishes',short:'Rinse the dishes',kind:'chore',done:false},
@@ -67,6 +67,11 @@ const houseObjects=[
  {x:230,y:312,w:74,h:55,color:'#b7aa8b',label:'BASKET',solid:true}
 ];
 const player={x:466,y:212,dir:'down',walk:0};let held=new Set(),lastTime=0,toastTimer,nearby=null;
+const npcStates=[
+ {index:1,x:338,y:318,tx:338,ty:318,dir:'down',speed:.35,pace:0},
+ {index:2,x:750,y:340,tx:750,ty:340,dir:'left',speed:.28,pace:0},
+ {index:3,x:408,y:105,tx:408,ty:105,dir:'left',speed:.22,pace:0}
+];
 function startGame(){
  game={map:'house',town:$('#homeTown').value,doneMoments:0,stats:{bond:35,helpfulness:32,energy:85,joy:58},journal:[],family:people.map(p=>({...p})),completed:new Set(),playerIndex:0};
  player.x=466;player.y=212;player.dir='down';
@@ -132,9 +137,11 @@ function drawYard(){
 }
 
 function drawPeople(){
- if(!game)return;
- const family=[{x:338,y:318,name:game.family[1]?.name||'Leo',person:game.family[1]},{x:750,y:340,name:game.family[2]?.name||'',person:game.family[2]},{x:550,y:130,name:game.family[3]?.name||'',person:game.family[3]}];
- family.forEach((m,i)=>{if(!m.person)return;let position=m.person.adult?{x:408,y:105}:{x:m.x,y:m.y};drawAvatar(position.x,position.y,m.person,i===0?'down':'left');});
+  if(!game)return;
+  npcStates.forEach(n=>{
+    const p=game.family[n.index];
+    if(p&&game.map==='house')drawAvatar(n.x,n.y,p,n.dir);
+  });
 }
 function drawPlayer(){
  const p=game.family[0];const size=24;
@@ -146,22 +153,81 @@ function drawPlayer(){
 function drawAvatar(x,y,p,dir='down'){ctx.save();ctx.translate(x,y);ctx.fillStyle='rgba(39,58,45,.15)';ctx.beginPath();ctx.ellipse(0,18,16,6,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=skinTones[p.skin][0];ctx.fillRect(-10,-18,20,20);ctx.fillStyle=hairColors[p.hairColor];ctx.fillRect(-12,-22,24,7);ctx.fillStyle=shirts[p.shirt][0];ctx.fillRect(-13,0,26,22);ctx.fillStyle='#526c82';ctx.fillRect(-10,22,8,14);ctx.fillRect(2,22,8,14);ctx.restore();}
 
 let keys={};
-window.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(['arrowup','arrowdown','arrowleft','arrowright','w','a','s','d','e',' '].includes(k)){e.prevent();keys[k]=true;}if(k==='e'||k===' ')interact();});
+window.addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  if(['arrowup','arrowdown','arrowleft','arrowright','w','a','s','d','e',' '].includes(k)){
+    e.preventDefault();
+    keys[k]=true;
+  }
+  if(k==='e'||k===' ')interact();
+});
 window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
-document.querySelectorAll('[data-dir]').forEach(b=>{const dir=b.dataset.dir;const key=dir==='up'?'arrowup':dir==='down'?'arrowdown':dir==='left'?'arrowleft':'arrowright';const start=e=>{e.preventDefault();keys[key]=true;};const end=e=>{e.preventDefault();keys[key]=false;};b.addEventListener('pointerdown',start);b.addEventListener('pointerup',end);b.addEventListener('pointercancel',end);b.addEventListener('pointerleave',end);});
+window.addEventListener('blur',()=>{keys={};});
+document.querySelectorAll('[data-dir]').forEach(b=>{
+  const key=b.dataset.dir==='up'?'arrowup':b.dataset.dir==='down'?'arrowdown':b.dataset.dir==='left'?'arrowleft':'arrowright';
+  const start=e=>{e.preventDefault();b.setPointerCapture?.(e.pointerId);keys[key]=true;};
+  const end=e=>{e.preventDefault();keys[key]=false;};
+  b.addEventListener('pointerdown',start);
+  b.addEventListener('pointerup',end);
+  b.addEventListener('pointercancel',end);
+});
 
 function blocked(x,y){
- if(x<24||x>936||y<24||y>552)return true;
- if(game.map==='house'){
-  if(y<288&&x>304&&x<336)return true;if(y<288&&x>624&&x<656)return true;if(y>288&&y<304&&((x<136)||(x>432&&x<496)||(x>824)||(x>752&&x<752)) )return true;
-  for(const o of houseObjects){if(o.solid&&x+14>o.x&&x-14<o.x+o.w&&y+14>o.y&&y-14<o.y+o.h)return true;}
- }else{
-  if(x>60&&x<470&&y>40&&y<208)return true;if(x>480&&x<550&&y>220)return true;if(x>690&&x<810&&y>380)return true;if(x>650&&x<830&&y>70&&y<290)return true;
- }
- return false;
+  if(x<24||x>936||y<24||y>552)return true;
+  if(game.map==='house'){
+   if(y<288&&x>304&&x<336)return true;if(y<288&&x>624&&x<656)return true;if(y>288&&y<304&&((x<136)||(x>432&&x<496)||(x>824)||(x>752&&x<752)))return true;
+   for(const o of houseObjects){if(o.solid&&x+14>o.x&&x-14<o.x+o.w&&y+14>o.y&&y-14<o.y+o.h)return true;}
+  }else{
+   if(x>60&&x<470&&y>40&&y<208)return true;if(x>480&&x<550&&y>220)return true;if(x>690&&x<810&&y>380)return true;if(x>650&&x<830&&y>70&&y<290)return true;
+  }
+  return false;
 }
-function loop(now){if(!game)return;const dt=Math.min((now-lastTime)/16.67,2);lastTime=now;let dx=0,dy=0;if(keys.arrowleft||keys.a)dx-=1;if(keys.arrowright||keys.d)dx+=1;if(keys.arrowup||keys.w)dy-=1;if(keys.arrowdown||keys.s)dy+=1;if(dx||dy){const len=Math.hypot(dx,dy);dx/=len;dy/=len;const speed=3*dt;if(!blocked(player.x+dx*speed,player.y))player.x+=dx*speed;if(!blocked(player.x,player.y+dy*speed))player.y+=dy*speed;player.walk+=dt;if(dy<0)player.dir='up';else if(dy>0)player.dir='down';else if(dx<0)player.dir='left';else player.dir='right';}
- checkTransitions();checkNearby();drawMap();requestAnimationFrame(loop);}
+
+function updateNpcs(dt){
+  if(game.map!=='house')return;
+  npcStates.forEach((n,i)=>{
+    if(!game.family[n.index])return;
+    n.pace+=dt;
+    const bases=[
+      {x1:300,x2:390,y1:306,y2:500},
+      {x1:680,x2:850,y1:320,y2:520},
+      {x1:350,x2:610,y1:70,y2:250}
+    ];
+    const b=bases[i];
+    if(n.pace>180+n.index*70||Math.hypot(n.x-n.tx,n.y-n.ty)<5){
+      n.pace=0;
+      n.tx=b.x1+Math.random()*(b.x2-b.x1);
+      n.ty=b.y1+Math.random()*(b.y2-b.y1);
+    }
+    const dx=n.tx-n.x,dy=n.ty-n.y,len=Math.hypot(dx,dy)||1;
+    const nx=n.x+(dx/len)*n.speed*dt,ny=n.y+(dy/len)*n.speed*dt;
+    if(!blocked(nx,n.y))n.x=nx;
+    if(!blocked(n.x,ny))n.y=ny;
+    if(Math.abs(dx)>Math.abs(dy))n.dir=dx<0?'left':'right';else n.dir=dy<0?'up':'down';
+  });
+}
+
+function loop(now){
+  if(!game)return;
+  const dt=Math.min(Math.max((now-lastTime)/16.67,0.25),2);
+  lastTime=now;
+  let dx=0,dy=0;
+  if(keys.arrowleft||keys.a)dx-=1;
+  if(keys.arrowright||keys.d)dx+=1;
+  if(keys.arrowup||keys.w)dy-=1;
+  if(keys.arrowdown||keys.s)dy+=1;
+  if(dx||dy){
+    const len=Math.hypot(dx,dy);dx/=len;dy/=len;
+    const speed=3.2*dt;
+    if(!blocked(player.x+dx*speed,player.y))player.x+=dx*speed;
+    if(!blocked(player.x,player.y+dy*speed))player.y+=dy*speed;
+    player.walk+=dt;
+    if(dy<0)player.dir='up';else if(dy>0)player.dir='down';else if(dx<0)player.dir='left';else player.dir='right';
+  }
+  updateNpcs(dt);
+  checkTransitions();checkNearby();drawMap();requestAnimationFrame(loop);
+}
+
 function checkTransitions(){if(game.map==='house'&&player.y>540&&player.x>432&&player.x<528){game.map='yard';player.x=265;player.y=220;$('#mapName').textContent='The neighborhood yard';$('#mapHint').textContent='🌳 Yard · the door leads back home';$('#familyMeta').textContent=`${game.town} · Outside in the sunshine`;toast('You stepped into the backyard!');}
  if(game.map==='yard'&&player.y<220&&player.x>235&&player.x<295){game.map='house';player.x=480;player.y=530;$('#mapName').textContent='The cozy house';$('#mapHint').textContent='🏠 Home · find a task nearby';$('#familyMeta').textContent=`${game.town} · A sunny afternoon`;toast('Back inside — there’s more to do.');}}
 function checkNearby(){nearby=null;let best=44;tasks.forEach(t=>{if(t.map===game.map&&!game.completed.has(t.id)){const d=Math.hypot(player.x-t.x,player.y-t.y);if(d<best){best=d;nearby=t;}}});if(nearby){$('#promptText').textContent=nearby.label;$('#interactPrompt').classList.add('show');}else{$('#interactPrompt').classList.remove('show');}}
