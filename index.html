@@ -148,6 +148,23 @@
     .ending-stat { text-align:center; background:#f5f3eb; border-radius:12px; padding:12px 6px; }
     .ending-stat strong { display:block; font-size:20px; }
     .ending-stat small { color:#849086; font-size:9px; text-transform:uppercase; font-weight:800; }
+    .scene-character { position:absolute; z-index:4; left:50%; bottom:58px; transform:translateX(-50%); cursor:grab; user-select:none; touch-action:none; transition:left .12s,bottom .12s,transform .12s; filter:drop-shadow(0 7px 3px #34423021); }
+    .scene-character:active { cursor:grabbing; transform:translateX(-50%) scale(1.06); }
+    .scene-character .character-face { display:grid; place-items:center; width:58px; height:58px; border:3px solid #fff8; border-radius:50%; background:var(--shirt,#e7bb99); font-size:38px; }
+    .scene-character .character-name { position:absolute; left:50%; bottom:-22px; transform:translateX(-50%); white-space:nowrap; border-radius:999px; padding:3px 7px; background:#fffdf0dd; color:#596a5d; font-size:9px; font-weight:850; }
+    .scene-character.player .character-face { width:72px; height:72px; font-size:48px; }
+    .scene-character.adult .character-face { width:64px; height:64px; font-size:43px; }
+    .scene-character .adult-badge { position:absolute; right:-4px; top:-5px; border-radius:50%; background:#fffdf0; padding:2px; font-size:10px; }
+    .character-maker { margin-top:14px; padding:14px; border:1px solid #e8e4da; border-radius:15px; background:#fbfaf6; }
+    .character-maker h3 { margin:0 0 10px; font-size:13px; }
+    .maker-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+    .maker-person { padding:9px; border-radius:12px; background:white; border:1px solid #ece7dc; }
+    .maker-person strong { display:block; margin-bottom:7px; font-size:11px; }
+    .maker-person label { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-top:6px; color:#7a887d; font-size:9px; }
+    .maker-person select { min-height:34px; height:34px; padding:0 7px; font-size:10px; }
+    .appearance-preview { width:42px; height:42px; margin:0 auto 7px; display:grid; place-items:center; border-radius:50%; background:#efe1cf; font-size:27px; }
+    .stat.changed .stat-value { color:#477052; animation:statPop .45s ease; }
+    @keyframes statPop { 50% { transform:scale(1.14); } }
     @media(max-width:900px) { .setup-layout { grid-template-columns:1fr; } .setup-art { min-height:360px; order:-1; } .window { top:38px; left:10%; transform:scale(.75); transform-origin:top left; } .sun { top:35px; right:15%; } .art-caption { top:230px; left:25px; } .couch { transform:scale(.75); transform-origin:bottom center; bottom:68px; } .throw,.pillow { bottom:90px; } .rug { bottom:25px; } .room-floor { height:105px; } .plant { bottom:85px; font-size:60px; } .setup-layout { min-height:0; } .dashboard { grid-template-columns:minmax(0,1fr) 250px; } }
     @media(max-width:680px) { .shell { padding:16px 14px 30px; } .topbar { margin-bottom:16px; } .top-note { font-size:9px; } .setup-art { min-height:300px; } .setup-form { padding:28px 21px; } .intro { font-size:13px; } .form-grid { gap:13px; } .sibling-row { grid-template-columns:1fr .65fr .9fr; gap:5px; } .sibling-row input,.sibling-row select { font-size:11px; padding:0 7px; } .dashboard { grid-template-columns:1fr; } .game-head { margin-bottom:13px; } .stats-strip { grid-template-columns:1fr 1fr; } .sidebar { grid-template-columns:1fr 1fr; } .sidebar .side-card:last-child { grid-column:1/-1; } .story-scene { height:185px; } .scene-window { left:4%; transform:scale(.8); transform-origin:top left; } .scene-couch { left:35%; transform:scale(.85); transform-origin:bottom left; } .scene-kid.player { left:20%; } .scene-kid { left:43%; } .scene-kid.second { left:60%; } .story-copy { padding:20px; } .story-copy h2 { font-size:22px; } .choices { grid-template-columns:1fr; } .choice { min-height:58px; } .game-actions .quiet-btn:first-child { display:none; } }
     @media(max-width:400px) { .sidebar { grid-template-columns:1fr; } .sidebar .side-card:last-child { grid-column:auto; } .form-grid { grid-template-columns:1fr; } .field.full { grid-column:auto; } }
@@ -182,6 +199,7 @@
             <div class="sibling-bar"><div class="field-label">Your younger siblings</div><div class="counter"><button type="button" id="removeSibling" aria-label="Remove a sibling">−</button><span id="siblingCount">2</span><button type="button" id="addSibling" aria-label="Add a sibling">+</button></div></div>
             <div class="tiny-label" style="display:grid;grid-template-columns:1.15fr .7fr .9fr;gap:8px"><span>Name</span><span>Age</span><span>Gender</span></div>
             <div id="siblingList" class="sibling-list"></div>
+            <div class="character-maker" id="characterMaker"><h3>Character maker</h3><div class="maker-grid" id="makerGrid"></div></div>
             <div class="start-row"><button class="primary" type="submit">Move in together <span aria-hidden="true">↗</span></button><span class="start-hint">Your choices shape the story. You can start over any time.</span></div>
           </form>
         </div>
@@ -221,10 +239,12 @@
     for (let age = 8; age <= 18; age++) ageSelect.insertAdjacentHTML('beforeend', `<option value="${age}" ${age === 14 ? 'selected' : ''}>${age} years old</option>`);
 
     const starterSiblings = [
-      { name: 'Leo', age: 9, gender: 'Boy' },
-      { name: 'Poppy', age: 5, gender: 'Girl' }
+      { name: 'Leo', age: 9, gender: 'Boy', skin: '🏽', shirt: '#e6ad89', hair: 'wavy' },
+      { name: 'Poppy', age: 5, gender: 'Girl', skin: '🏾', shirt: '#91aaa0', hair: 'curly' }
     ];
     let configuredSiblings = starterSiblings.map((s) => ({...s}));
+    let playerAppearance = { skin: '🏽', shirt: '#e6ad89', hair: 'curly' };
+    let adultAppearances = {};
     const genderOptions = '<option>Girl</option><option>Boy</option><option>Nonbinary</option><option>Prefer not to say</option>';
 
     function drawSetupSiblings() {
@@ -257,14 +277,51 @@
       });
     }
     function escapeHtml(text) { return String(text).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    const skinOptions = [['🏽','Medium'],['🏻','Light'],['🏼','Warm'],['🏾','Deep'],['🏿','Dark']];
+    const shirtOptions = [['#e6ad89','Peach'],['#91aaa0','Sage'],['#d7aa62','Gold'],['#8799b5','Blue'],['#b69aaf','Lavender'],['#d58c91','Rose']];
+    const hairOptions = [['curly','Curly'],['wavy','Wavy'],['braids','Braids'],['pigtails','Pigtails'],['short','Short']];
+    function appearancePreview(person, key='player') {
+      const skin = person.skin || '🏽';
+      const faceBase = key === 'adult' ? '🧑' : person.gender === 'Boy' ? '👦' : person.gender === 'Girl' ? '👧' : '🧒';
+      const face = faceBase + skin;
+      return `<div class="appearance-preview" style="background:${person.shirt || '#e6ad89'}">${face}</div>`;
+    }
+    function drawCharacterMaker() {
+      const grid = $('#makerGrid');
+      const people = [{key:'player', name:($('#playerName').value.trim() || 'You'), gender:$('#playerGender').value, appearance:playerAppearance, role:'Player'}, ...configuredSiblings.map((s,i)=>({key:`sibling-${i}`, name:s.name || `Sibling ${i+1}`, gender:s.gender, appearance:s, role:`Sibling ${i+1}`}))];
+      const selectedAdults = [...document.querySelectorAll('input[name="household"]:checked')].map((x)=>x.value);
+      selectedAdults.forEach((name) => { if (!adultAppearances[name]) adultAppearances[name] = {skin:'🏽', shirt:'#8799b5', hair:'wavy', gender:'Prefer not to say'}; people.push({key:`adult-${name}`, name, gender:'Adult', appearance:adultAppearances[name], role:'Grown-up'}); });
+      grid.innerHTML = people.map((p)=>{
+        const a=p.appearance;
+        const skinSelect = skinOptions.map(([v,n])=>`<option value="${v}" ${a.skin===v?'selected':''}>${n}</option>`).join('');
+        const shirtSelect = shirtOptions.map(([v,n])=>`<option value="${v}" ${a.shirt===v?'selected':''}>${n}</option>`).join('');
+        const hairSelect = hairOptions.map(([v,n])=>`<option value="${v}" ${a.hair===v?'selected':''}>${n}</option>`).join('');
+        return `<div class="maker-person" data-maker="${p.key}">${appearancePreview({...a,...p},p.key)}<strong>${escapeHtml(p.name)}</strong><label>Skin <select data-maker-key="skin">${skinSelect}</select></label><label>Shirt <select data-maker-key="shirt">${shirtSelect}</select></label><label>Hair <select data-maker-key="hair">${hairSelect}</select></label></div>`;
+      }).join('');
+      grid.querySelectorAll('.maker-person').forEach((card)=>{
+        card.querySelectorAll('select').forEach((select)=>select.addEventListener('change',()=>{
+          const key=card.dataset.maker; const field=select.dataset.makerKey;
+          if(key==='player') playerAppearance[field]=select.value;
+          else if(key.startsWith('sibling-')) configuredSiblings[Number(key.split('-')[1])][field]=select.value;
+          else adultAppearances[key.slice(6)][field]=select.value;
+          drawCharacterMaker();
+        }));
+      });
+    }
+
     $('#addSibling').addEventListener('click', () => {
       if (configuredSiblings.length >= 5) return;
-      configuredSiblings.push({ name: ['Ari','Sam','June','Rory','Kit'][configuredSiblings.length], age: Math.max(1, Number(ageSelect.value) - 3 - configuredSiblings.length), gender: 'Nonbinary' });
-      drawSetupSiblings();
+      configuredSiblings.push({ name: ['Ari','Sam','June','Rory','Kit'][configuredSiblings.length], age: Math.max(1, Number(ageSelect.value) - 3 - configuredSiblings.length), gender: 'Nonbinary', skin: '🏽', shirt: '#91aaa0', hair: 'short' });
+      drawSetupSiblings(); drawCharacterMaker();
     });
-    $('#removeSibling').addEventListener('click', () => { if (configuredSiblings.length > 1) { configuredSiblings.pop(); drawSetupSiblings(); } });
+    $('#removeSibling').addEventListener('click', () => { if (configuredSiblings.length > 1) { configuredSiblings.pop(); drawSetupSiblings(); drawCharacterMaker(); } });
     ageSelect.addEventListener('change', drawSetupSiblings);
+    $('#playerName').addEventListener('input', drawCharacterMaker);
+    $('#playerGender').addEventListener('change', drawCharacterMaker);
+    document.querySelectorAll('input[name="household"]').forEach((input)=>input.addEventListener('change', drawCharacterMaker));
     drawSetupSiblings();
+    drawCharacterMaker();
 
     const locations = { suburb:'a leafy suburb', city:'a busy city', coast:'a coastal town', country:'the countryside', mountains:'a mountain town' };
     const faces = { Girl:['👧🏻','👧🏼','👧🏽','👧🏾'], Boy:['👦🏻','👦🏼','👦🏽','👦🏾'], Nonbinary:['🧒🏻','🧒🏼','🧒🏽','🧒🏾'], 'Prefer not to say':['🧒🏻','🧒🏼','🧒🏽','🧒🏾'] };
@@ -320,9 +377,10 @@
     let game = null;
     function createGame(form) {
       const name = form.get('playerName').trim() || 'Maya';
-      const siblings = configuredSiblings.map((s) => ({ name:s.name.trim() || 'Sibling', age:Number(s.age), gender:s.gender, bond:35, mood:0 }));
+      const siblings = configuredSiblings.map((s) => ({ name:s.name.trim() || 'Sibling', age:Number(s.age), gender:s.gender, skin:s.skin, shirt:s.shirt, hair:s.hair, bond:35, mood:0 }));
       const household = form.getAll('household');
-      game = { name, age:Number(form.get('playerAge')), gender:form.get('playerGender'), home:form.get('home'), household, siblings, day:0, bond:40, patience:48, energy:72, joy:50, entries:[], done:false, pending:false };
+      const adults = household.map((name)=>({...adultAppearances[name], name}));
+      game = { name, age:Number(form.get('playerAge')), gender:form.get('playerGender'), home:form.get('home'), household, adults, siblings, playerAppearance:{...playerAppearance}, day:0, bond:40, patience:48, energy:72, joy:50, entries:[], done:false, pending:false, positions:{} };
       $('#setupScreen').classList.remove('active'); $('#gameScreen').classList.add('active');
       renderGame();
     }
@@ -331,8 +389,43 @@
     function bounded(value) { return Math.max(0, Math.min(100, value)); }
     function moodFor(value) { return value > 62 ? '😊' : value < 25 ? '😟' : '🙂'; }
     function sceneFace(person, index=0) {
+      if (person.appearance && person.appearance.skin) person.skin = person.appearance.skin;
       const pool = faces[person.gender] || faces.Nonbinary;
-      return person.age <= 2 ? ['👶🏻','👶🏽','👶🏾'][index % 3] : pool[index % pool.length];
+      return person.age <= 2 ? ['👶🏻','👶🏽','👶🏾'][index % 3] : pool[index % pool.length].replace(/[🏻🏼🏽🏾🏿]/g, person.skin || '🏽');
+    }
+
+    function renderSceneCharacters() {
+      if (!game) return;
+      const scene=$('.story-scene');
+      scene.querySelectorAll('.scene-character').forEach((el)=>el.remove());
+      const models=[
+        {id:'player',name:game.name,person:{gender:game.gender,age:game.age,...game.playerAppearance},role:'player'},
+        ...game.siblings.map((s,i)=>({id:`sibling-${i}`,name:s.name,person:s,role:i===0?'':'sibling'})),
+        ...game.adults.map((a,i)=>({id:`adult-${i}`,name:a.name,person:a,role:'adult'}))
+      ];
+      const slots=[18,32,46,60,74,86];
+      models.forEach((m,i)=>{
+        const pos=game.positions[m.id] || {left:slots[i % slots.length],bottom:m.role==='player'?58:55};
+        const el=document.createElement('div'); el.className=`scene-character ${m.role==='player'?'player':m.role==='adult'?'adult':''}`; el.dataset.character=m.id;
+        el.style.left=`${pos.left}%`; el.style.bottom=`${pos.bottom}px`; el.style.setProperty('--shirt',m.person.shirt || (m.role==='adult'?'#8799b5':'#e6ad89'));
+        el.innerHTML=`<div class="character-face">${sceneFace(m.person,i)}</div>${m.role==='adult'?'<span class="adult-badge">★</span>':''}<span class="character-name">${escapeHtml(m.name)}</span>`;
+        scene.appendChild(el); enableCharacterDrag(el);
+      });
+    }
+
+    function enableCharacterDrag(el) {
+      let dragging=false;
+      const move=(event)=>{
+        if(!dragging)return;
+        const scene=$('.story-scene'); const rect=scene.getBoundingClientRect();
+        const point=event.touches?event.touches[0]:event;
+        const left=Math.max(5,Math.min(95,(point.clientX-rect.left)/rect.width*100));
+        const bottom=Math.max(40,Math.min(rect.height-82,rect.bottom-point.clientY));
+        el.style.left=`${left}%`; el.style.bottom=`${bottom}px`;
+      };
+      el.addEventListener('pointerdown',(event)=>{dragging=true;el.setPointerCapture(event.pointerId);event.preventDefault();});
+      el.addEventListener('pointermove',(event)=>{if(dragging){const scene=$('.story-scene'),rect=scene.getBoundingClientRect(),point=event;const left=Math.max(5,Math.min(95,(point.clientX-rect.left)/rect.width*100));const bottom=Math.max(40,Math.min(rect.height-82,rect.bottom-point.clientY));el.style.left=`${left}%`;el.style.bottom=`${bottom}px`;}});
+      el.addEventListener('pointerup',(event)=>{dragging=false;try{el.releasePointerCapture(event.pointerId);}catch(e){}game.positions[el.dataset.character]={left:parseFloat(el.style.left),bottom:parseFloat(el.style.bottom)};showToast('You moved a family member');});
     }
     function statMarkup(label, value, icon, id) { return `<div class="stat"><div class="stat-top"><span>${label}</span><span>${icon}</span></div><div class="stat-value">${value}%</div><div class="meter"><i id="meter-${id}" style="width:${value}%"></i></div></div>`; }
     function renderGame() {
@@ -346,6 +439,7 @@
       $('#questCount').textContent = `${game.day} / 5`;
       $('#questMeter').style.width = `${game.day / 5 * 100}%`;
       $('#journal').innerHTML = game.entries.length ? game.entries.slice().reverse().map((entry) => `<div class="journal-entry"><strong>${entry.title}</strong><br>${entry.text}</div>`).join('') : '<div class="journal-entry">Your story starts with the little things. Your choices will show up here.</div>';
+      renderSceneCharacters();
       if (!game.pending) renderEvent();
     }
 
@@ -378,6 +472,11 @@
       const result = choice.result(game.siblings);
       game.entries.push({ title:`Day ${game.day + 1} · ${event.title}`, text:result });
       renderGame();
+      ['bond','patience','energy','joy'].forEach((key)=>{
+        const statIndex={bond:0,patience:1,energy:2,joy:3}[key];
+        const stat=$('#statsStrip').children[statIndex];
+        if(stat){stat.classList.remove('changed');void stat.offsetWidth;stat.classList.add('changed');}
+      });
       $('#storyText').textContent = result;
       $('#choice-label');
       $('#choices').innerHTML = `<div style="grid-column:1/-1;background:#edf2e8;border:1px solid #e3ebdc;padding:15px 16px;border-radius:14px;color:#516951;font-size:12px;line-height:1.55"><strong style="display:block;margin-bottom:4px">A moment to remember</strong>${escapeHtml(result)}<div style="margin-top:8px;color:#879587;font-size:10px">Family bond ${formatChange(choice.effect.bond)} · Patience ${formatChange(choice.effect.patience)} · Energy ${formatChange(choice.effect.energy)} · Joy ${formatChange(choice.effect.joy)}</div></div><button class="primary" id="nextDay" style="grid-column:1/-1;justify-self:end">${game.day === 4 ? 'See how your week went' : 'Continue to tomorrow'} <span aria-hidden="true">→</span></button>`;
@@ -424,7 +523,8 @@
       if (!game) return;
       const household = game.household.length ? game.household.join(', ') : 'No grown-ups selected';
       const siblingRows = game.siblings.map((s,i) => `<div class="sibling-mini"><div class="mini-face">${sceneFace(s,i)}</div><div class="mini-info"><strong>${escapeHtml(s.name)}</strong><small>${s.age} years old · ${escapeHtml(s.gender)}</small></div></div>`).join('');
-      openModal(`<div class="eyebrow">Your story so far</div><h2>${escapeHtml(game.name)}’s family</h2><p>You’re ${game.age}, living in ${locations[game.home]} with ${escapeHtml(household)}. Your family is your own—and there’s no one right way for it to look.</p><div class="siblings-list">${siblingRows}</div><div class="start-row"><button class="primary" data-close>Back to the story</button></div>`);
+      const adultRows = game.adults.map((a,i)=>`<div class="sibling-mini"><div class="mini-face" style="background:${a.shirt||'#8799b5'}">${sceneFace({gender:'Prefer not to say',age:40,skin:a.skin},i)}</div><div class="mini-info"><strong>${escapeHtml(a.name)}</strong><small>Grown-up · visible in the room</small></div></div>`).join('');
+      openModal(`<div class="eyebrow">Your story so far</div><h2>${escapeHtml(game.name)}’s family</h2><p>You’re ${game.age}, living in ${locations[game.home]} with ${escapeHtml(household)}. Your family is your own—and there’s no one right way for it to look.</p><div class="siblings-list">${siblingRows}${adultRows}</div><div class="start-row"><button class="primary" data-close>Back to the story</button></div>`);
     });
     $('#restartButton').addEventListener('click', () => {
       openModal(`<div class="eyebrow">A fresh start</div><h2>Start a new story?</h2><p>Your current journal will be replaced. You can change your family setup before starting again.</p><div class="start-row"><button class="primary" id="confirmRestart">Choose my family</button><button class="quiet-btn" data-close>Stay here</button></div>`);
