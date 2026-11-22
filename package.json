@@ -1,0 +1,14 @@
+{
+  "name": "morning-mayhem",
+  "version": "1.0.0",
+  "description": "Dad Duty - household RPG browser game",
+  "scripts": {
+    "test": "node tests/run.js",
+    "test:playtest": "node tests/playtest.js",
+    "test:mechanics": "node tests/mechanics-test.js",
+    "serve": "python3 -m http.server 3002"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  }
+}
