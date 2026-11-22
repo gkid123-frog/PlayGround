@@ -8,6 +8,19 @@
 </style>
 <style>.dialog-shade{position:absolute;inset:0;background:#09110dcc;display:none;align-items:center;justify-content:center;padding:18px;z-index:5;touch-action:auto}.dialog-shade.open{display:flex}.dialog-box{width:min(520px,96%);max-height:90%;overflow:auto;background:#24352b;border:1px solid #9db17c;border-radius:18px;padding:20px}.dialog-box h2{margin:0 0 8px;color:#d8f28b}.dialog-box p{line-height:1.55}.choices{display:grid;gap:8px}.choices button{padding:10px;background:#354a3a;color:#f7f1df;border:1px solid #708768;border-radius:10px;text-align:left;font:inherit}.dialog-note{color:#bac9b8;font-size:12px;margin-top:12px}</style>
 <style>.intro-shade{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;padding:18px;background:#09110deF;touch-action:auto}.intro-card{width:min(560px,96%);padding:clamp(20px,4vw,36px);border:1px solid #9db17c;border-radius:20px;background:#24352b;box-shadow:0 18px 60px #0008;text-align:center}.intro-card h1{margin:0 0 12px;color:#d8f28b;font-size:clamp(26px,5vw,42px);line-height:1.1}.intro-card p{color:#f7f1df;line-height:1.6;margin:10px auto;max-width:48ch}.intro-card .objective{padding:12px;border-radius:12px;background:#17251c;color:#e3edda}.intro-card button{margin-top:12px;padding:12px 24px;border:1px solid #c8e58a;border-radius:12px;background:#d8f28b;color:#1b281d;font:800 17px system-ui;cursor:pointer}</style>
+<style>
+/* Keep every sidebar section visible with no scrolling at tablet heights. */
+.panel{overflow:hidden;gap:5px;padding:8px;min-height:0}
+.panel>*{flex:0 0 auto;min-height:0}
+.clock{padding:6px}.clock strong{font-size:16px}
+.card{padding:6px}.card h3{margin-bottom:3px}
+.tasks{font-size:10px;line-height:1.12;gap:1px}.tasks>div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kids{gap:2px}.kid{font-size:9px;line-height:1.15}
+.help{font-size:9px;line-height:1.2;margin-top:auto}
+.restart{padding:6px}
+@media(max-height:650px){.panel{gap:3px;padding:6px}.clock{padding:4px}.clock strong{font-size:14px}.card{padding:4px}.card h3{font-size:11px;margin-bottom:2px}.tasks{font-size:9px;line-height:1.1}.kid{font-size:8px}.help{font-size:8px}.restart{padding:4px;font-size:11px}}
+@media(max-height:520px){.subtitle,.help{display:none}.panel{gap:2px;padding:4px}.title{font-size:13px}.clock{padding:3px}.clock strong{font-size:13px}.meterhead{font-size:10px}.card h3{font-size:10px;margin-bottom:1px}.tasks{font-size:8px;line-height:1.05}.kid{font-size:7px}.restart{padding:3px;font-size:10px}}
+</style>
 </head>
 <body>
 <main id="app">
@@ -21,14 +34,14 @@
 <div class="intro-shade" id="introShade"><div class="intro-card"><h1>Morning Mayhem</h1><p>It’s Tuesday morning, and the house is already waking up. Help Dad guide the family through a very busy day.</p><p class="objective"><strong>Your goal:</strong> get breakfast on the table, finish showers, laundry, and dishes in order, then tuck all three girls into bed. Finally, Dad must get into his own bed to win. Keep your temper from running out along the way.</p><p>Move with <strong>WASD</strong>, the arrow keys, or the on-screen controls. Press <strong>E</strong> near a station to interact.</p><button id="startGame">Start game</button></div></div>
 <div class="dialog-shade" id="dialogShade"><div class="dialog-box"><h2 id="dialogTitle"></h2><p id="dialogText"></p><div class="choices" id="dialogChoices"></div><div class="dialog-note">The game is paused while Dad talks.</div></div></div>
 <aside class="panel">
-<div><div class="title">The morning shift</div><div class="subtitle">Keep the house running until bedtime.</div></div>
+<div><div class="title">The morning shift</div><div class="subtitle">WASD / arrows: move · E: interact</div></div>
 <div class="clock"><span>🕒 Tuesday</span><strong id="time">7:00 AM</strong></div>
 <div class="meter"><div class="meterhead"><span>Dad’s focus</span><b id="focusN">100%</b></div><div class="bar"><i id="focusB"></i></div></div>
 <div class="meter"><div class="meterhead"><span>Temper</span><b id="temperN">100%</b></div><div class="bar temper"><i id="temperB"></i></div></div>
 <div class="card"><h3>The girls</h3><div class="kids" id="kids"></div></div>
 <div class="card"><h3>Household checklist</h3><div class="tasks" id="tasks"></div></div>
-<div class="card"><h3>How to play</h3><div class="tasks">Move: <b>WASD / arrow keys</b><br>Do chores: <b>E</b> near a station<br>Doors are open passages—walk through the gaps in the walls. Girls and Charlie have minds of their own!</div></div>
-<div class="help">If the house gets too chaotic, Dad’s temper runs out. Get everyone through the day and tucked into their own beds to win.</div>
+
+<div class="help">Finish tasks in order. Watch Dad’s temper; tuck in all three girls, then get Dad into bed to win.</div>
 <button class="restart" id="break">☕ Take a dad break</button>
 <button class="restart" id="restart">↻ Start a new day</button>
 </aside>
@@ -67,19 +80,19 @@ const props=[
  {x:55,y:465,w:70,h:54,type:'tub',label:'Shower',task:'showers'},
  {x:158,y:465,w:65,h:54,type:'washer',label:'Washer',task:'laundry'},
  {x:238,y:465,w:65,h:54,type:'dryer',label:'Dryer',task:'laundry'},
- {x:355,y:465,w:90,h:58,type:'stove',label:'',task:'breakfast'},
- {x:455,y:465,w:85,h:58,type:'fridge',label:'',task:'breakfast'},
+ {x:355,y:465,w:90,h:58,type:'stove',label:'',task:'meal'},
+ {x:455,y:465,w:85,h:58,type:'fridge',label:'',task:'meal'},
  {x:550,y:465,w:100,h:55,type:'sink',label:'',task:'dishes'},
- {x:390,y:535,w:210,h:62,type:'table',label:'',task:'breakfast'},
- {x:420,y:600,w:150,h:42,type:'chairs',label:'',task:'breakfast'},
- {x:735,y:390,w:150,h:88,type:'tv',label:'TV',distraction:true},
- {x:710,y:535,w:80,h:55,type:'toy',label:'Toys',distraction:true},
- {x:865,y:535,w:75,h:55,type:'book',label:'Books',distraction:true},
+ {x:390,y:535,w:210,h:62,type:'table',label:'',task:'meal'},
+ {x:420,y:600,w:150,h:42,type:'chairs',label:'',task:'meal'},
+ {x:735,y:390,w:150,h:88,type:'tv',label:'TV',task:'afternoon'},
+ {x:710,y:535,w:80,h:55,type:'toy',label:'Toys',task:'afternoon'},
+ {x:865,y:535,w:75,h:55,type:'book',label:'Books',task:'afternoon'},
  {x:865,y:325,w:58,h:46,type:'door',label:'Outside',distraction:true}
 ];
-const names={breakfast:'Make breakfast',showers:'Get showers done',laundry:'Wash & dry laundry',dishes:'Do the dishes',bedElaina:'Tuck Elaina in',bedElsie:'Tuck Elsie in',bedEllerle:'Tuck Ellerle in'};
-const taskOrder=['breakfast','showers','laundry','dishes'];
-const tasks={breakfast:false,showers:false,laundry:false,dishes:false,bedElaina:false,bedElsie:false,bedEllerle:false};
+const names={breakfast:'Make breakfast',showers:'Get showers & ready',laundry:'Wash & dry laundry',lunch:'Make lunch',dishes:'Do the dishes',afternoon:'Afternoon activities',dinner:'Make dinner',bedElaina:'Tuck Elaina in',bedElsie:'Tuck Elsie in',bedEllerle:'Tuck Ellerle in'};
+const taskOrder=['breakfast','showers','laundry','lunch','dishes','afternoon','dinner'];
+const tasks={breakfast:false,showers:false,laundry:false,lunch:false,dishes:false,afternoon:false,dinner:false,bedElaina:false,bedElsie:false,bedEllerle:false};
 const girls=[
  {name:'Elaina · 12',short:'Elaina',x:455,y:120,tx:135,ty:130,color:'#aa5d72',agenda:'coming to wake Dad',speed:38,mood:55,history:0,age:12,tripCooldown:0},
  {name:'Elsie · 9',short:'Elsie',x:525,y:145,tx:155,ty:150,color:'#5572a6',agenda:'coming to wake Dad',speed:34,mood:65,history:0,age:9,tripCooldown:0},
@@ -179,8 +192,8 @@ const roomLinks={
  living:[['hall',[682,350],[648,350]],['kitchen',[682,495],[648,495]]]
 };
 function roomAt(x,y){if(x>665)return'living';if(y<297)return x<332?'dad':'girls';if(y<397)return'hall';return x<332?'bath':'kitchen'}
-function setDestination(g,x,y){const from=roomAt(g.x,g.y),to=roomAt(x,y),queue=[[from,[]]],seen=new Set([from]);let path=[];while(queue.length){const [room,links]=queue.shift();if(room===to){path=links;break}for(const link of roomLinks[room]||[]){if(!seen.has(link[0])){seen.add(link[0]);queue.push([link[0],[...links,link]])}}}g.route=[];for(const link of path)g.route.push(link[1],link[2]);g.route.push([x,y]);g.tx=x;g.ty=y}
-function moveActor(g,dt,speedScale=1){if(!g.route||!g.route.length)return;const [tx,ty]=g.route[0],dx=tx-g.x,dy=ty-g.y,d=Math.hypot(dx,dy);if(d<=2){g.x=tx;g.y=ty;g.route.shift();return}const step=Math.min(d,g.speed*speedScale*dt),nx=g.x+dx/d*step,ny=g.y+dy/d*step;if(!blockedChild(nx,ny,g)){g.x=nx;g.y=ny}}
+function setDestination(g,x,y,mode=''){const from=roomAt(g.x,g.y),to=roomAt(x,y),queue=[[from,[]]],seen=new Set([from]);let path=null;while(queue.length){const [room,links]=queue.shift();if(room===to){path=links;break}for(const link of roomLinks[room]||[]){if(!seen.has(link[0])){seen.add(link[0]);queue.push([link[0],[...links,link]])}}}g.route=[];if(path)for(const link of path)g.route.push(link[1],link[2]);g.route.push([x,y]);g.tx=x;g.ty=y;g.routeMode=mode}
+function moveActor(g,dt,speedScale=1){if(!g.route||!g.route.length)return false;const [tx,ty]=g.route[0],dx=tx-g.x,dy=ty-g.y,d=Math.hypot(dx,dy);if(d<=2){g.x=tx;g.y=ty;g.route.shift();return !g.route.length}const step=Math.min(d,g.speed*speedScale*dt),nx=g.x+dx/d*step,ny=g.y+dy/d*step;if(!blockedChild(nx,ny,g)){g.x=nx;g.y=ny}return false}
 function blocked(x,y){const r=player.r;const segs=[
  [20,20,980,20],[20,20,20,680],[20,680,980,680],[980,20,980,298],[980,380,980,680],
  ...walls
