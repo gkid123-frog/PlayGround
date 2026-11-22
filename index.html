@@ -100,7 +100,7 @@ const girls=[
  {name:'Charlie · Great Pyrenees',short:'Charlie',x:755,y:580,tx:755,ty:580,color:'#fff1d2',agenda:'napping',speed:17,mood:80,history:0,dog:true,age:8}
 ];
 let focus=100,temper=100,elapsed=0,last=performance.now(),messageTimer=0,ended='',washTimer=0,chaos=0,opening=true,paused=false,started=false,breakTimer=0,lowTemperWarned=false;
-const charlieTimer={next:7,action:'napping',barkLeft:0};let openingRoutesStarted=false;
+const charlieTimer={next:7,action:'napping',barkLeft:0,checkCooldown:18,checkTarget:null,nudgeLeft:0};let openingRoutesStarted=false;
 function rounded(x,y,w,h,r,fill,stroke){ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()}}
 function roomDraw(){
  ctx.fillStyle='#18251e';ctx.fillRect(0,0,W,H);
