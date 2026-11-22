@@ -101,9 +101,47 @@ const girls=[
 ];
 let focus=100,temper=100,elapsed=0,last=performance.now(),messageTimer=0,ended='',washTimer=0,chaos=0,opening=true,paused=false,started=false,breakTimer=0,lowTemperWarned=false;
 const charlieTimer={next:7,action:'napping',barkLeft:0,checkCooldown:18,checkTarget:null,nudgeLeft:0};
- const mealUrgency={lunch:{started:null,warned:false,lateWarned:false,penaltyStep:0},dinner:{started:null,warned:false,lateWarned:false,penaltyStep:0}};let crankyMode=false,openingRoutesStarted=false;
- function mealDelay(task){const state=mealUrgency[task];return state&&state.started!==null?elapsed-state.started:0}
- function updateMealUrgency(){for(const meal of ['lunch','dinner']){const state=mealUrgency[meal],due=meal==='lunch'?300:600;if(!tasks[meal]&&!state.warned&&elapsed>=due-30){state.warned=true;toast(`Almost time for ${meal}! Let’s get it ready.`)}}const current=taskOrder.find(k=>!tasks[k]);if(current!=='lunch'&&current!=='dinner')return;const state=mealUrgency[current];if(state.started===null)state.started=elapsed;const late=elapsed-state.started;if(late>=35&&!state.lateWarned){state.lateWarned=true;toast(`It’s getting late for ${current}. The girls are getting cranky!`)}const step=Math.floor(Math.max(0,late-20)/12);if(step>state.penaltyStep){const loss=(step-state.penaltyStep)*4;girls.filter(g=>!g.dog&&!g.asleep).forEach(g=>{g.mood=Math.max(0,g.mood-loss);g.history=Math.max(-5,g.history-0.5*(step-state.penaltyStep))});state.penaltyStep=step}if(late>=85&&!crankyMode){crankyMode=true;toast('The girls are too cranky to help now. Dad will have to handle the tasks himself.') }}
+ const mealUrgency={lunch:{due:720,warned:false,lateWarned:false,penaltyStep:0,lateStarted:null},dinner:{due:1020,warned:false,lateWarned:false,penaltyStep:0,lateStarted:null}};let crankyMode=false,openingRoutesStarted=false;
+ function scheduledDayMinutes(){
+   let minutes=420+Math.floor(elapsed);
+   if(tasks.lunch)minutes=Math.max(minutes,720);
+   if(tasks.dinner)minutes=Math.max(minutes,1020);
+   if(tasks.dinner&&tasks.bedElaina&&tasks.bedElsie&&tasks.bedEllerle)minutes=Math.max(minutes,1200);
+   return minutes;
+  }
+  function mealDelay(task){const state=mealUrgency[task];return state&&state.lateStarted!==null?elapsed-state.lateStarted:0}
+ function updateMealUrgency(){
+   const dayMinutes=scheduledDayMinutes();
+   for(const meal of ['lunch','dinner']){
+    const state=mealUrgency[meal];
+    if(!tasks[meal]&&!state.warned&&dayMinutes>=state.due-30){
+     state.warned=true;
+     toast(`Almost time for ${meal}! Let’s get it ready.`);
+    }
+   }
+   const current=taskOrder.find(k=>!tasks[k]);
+   if(current!=='lunch'&&current!=='dinner')return;
+   const state=mealUrgency[current];
+   if(dayMinutes>=state.due&&state.lateStarted===null)state.lateStarted=elapsed;
+   const late=state.lateStarted===null?0:elapsed-state.lateStarted;
+   if(late>=35&&!state.lateWarned){
+    state.lateWarned=true;
+    toast(`It’s getting late for ${current}. The girls are getting cranky!`);
+   }
+   const step=Math.floor(Math.max(0,late-20)/12);
+   if(step>state.penaltyStep){
+    const stepIncrease=step-state.penaltyStep;
+    girls.filter(g=>!g.dog&&!g.asleep).forEach(g=>{
+     g.mood=Math.max(0,g.mood-stepIncrease*4);
+     g.history=Math.max(-5,g.history-0.5*stepIncrease);
+    });
+    state.penaltyStep=step;
+   }
+   if(late>=85&&!crankyMode){
+    crankyMode=true;
+    toast('The girls are too cranky to help now. Dad will have to handle the tasks himself.');
+   }
+  }
 function rounded(x,y,w,h,r,fill,stroke){ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()}}
 function roomDraw(){
  ctx.fillStyle='#18251e';ctx.fillRect(0,0,W,H);
