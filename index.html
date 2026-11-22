@@ -65,8 +65,11 @@ const props=[
  {x:55,y:465,w:70,h:54,type:'tub',label:'Shower',task:'showers'},
  {x:158,y:465,w:65,h:54,type:'washer',label:'Washer',task:'laundry'},
  {x:238,y:465,w:65,h:54,type:'dryer',label:'Dryer',task:'laundry'},
- {x:375,y:465,w:90,h:58,type:'stove',label:'Breakfast',task:'breakfast'},
- {x:510,y:465,w:100,h:55,type:'sink',label:'Dishes',task:'dishes'},
+ {x:355,y:465,w:90,h:58,type:'stove',label:'',task:'breakfast'},
+ {x:455,y:465,w:85,h:58,type:'fridge',label:'',task:'breakfast'},
+ {x:550,y:465,w:100,h:55,type:'sink',label:'',task:'dishes'},
+ {x:390,y:535,w:210,h:62,type:'table',label:'',task:'breakfast'},
+ {x:420,y:600,w:150,h:42,type:'chairs',label:'',task:'breakfast'},
  {x:735,y:390,w:150,h:88,type:'tv',label:'TV',distraction:true},
  {x:710,y:535,w:80,h:55,type:'toy',label:'Toys',distraction:true},
  {x:865,y:535,w:75,h:55,type:'book',label:'Books',distraction:true},
@@ -82,6 +85,7 @@ const girls=[
  {name:'Charlie · Great Pyrenees',short:'Charlie',x:755,y:580,tx:755,ty:580,color:'#fff1d2',agenda:'napping',speed:17,mood:80,history:0,dog:true,age:8}
 ];
 let focus=100,temper=100,elapsed=0,last=performance.now(),messageTimer=0,ended='',washTimer=0,chaos=0,opening=true,paused=false,breakTimer=0;
+const charlieTimer={next:7,action:'napping',barkLeft:0};
 function rounded(x,y,w,h,r,fill,stroke){ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()}}
 function roomDraw(){
  ctx.fillStyle='#18251e';ctx.fillRect(0,0,W,H);
@@ -107,6 +111,9 @@ function drawProp(p){let{x,y,w,h,type,label,task,distraction}=p;ctx.save();
  else if(type==='washer'||type==='dryer'){rounded(x,y,w,h,6,type==='washer'?'#eee9d9':'#d7c8a9','#7e8980');ctx.beginPath();ctx.arc(x+w/2,y+29,15,0,Math.PI*2);ctx.fillStyle='#8ba5a0';ctx.fill();ctx.strokeStyle='#f8f2dd';ctx.lineWidth=3;ctx.stroke()}
  else if(type==='stove'){rounded(x,y,w,h,7,'#60665c','#44483e');[0,1,2,3].forEach((_,i)=>{ctx.beginPath();ctx.arc(x+26+i%2*37,y+18+Math.floor(i/2)*24,8,0,7);ctx.fillStyle='#c9c4ad';ctx.fill()})}
  else if(type==='sink'){rounded(x,y,w,h,7,'#a98564','#6f5945');rounded(x+13,y+8,w-26,h-18,5,'#9cc5c4','#657d79');ctx.fillStyle='#d9e7d8';ctx.fillRect(x+w/2-3,y+3,6,12)}
+ else if(type==='fridge'){rounded(x,y,w,h,7,'#dce2dc','#728078');ctx.beginPath();ctx.moveTo(x+w/2,y+5);ctx.lineTo(x+w/2,y+h-5);ctx.strokeStyle='#88978f';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='#718078';ctx.fillRect(x+12,y+25,5,15);ctx.fillRect(x+w/2+12,y+25,5,15);ctx.fillStyle='#eef3ed';ctx.fillRect(x+10,y+8,20,5)}
+ else if(type==='table'){rounded(x,y,w,h,8,'#b98b5b','#775a40');ctx.fillStyle='#d7b28a';ctx.fillRect(x+10,y+8,w-20,h-16);ctx.fillStyle='#6f4c34';[x+18,x+w-28].forEach(cx=>ctx.fillRect(cx,y+h-4,10,18))}
+ else if(type==='chairs'){[x,x+70,x+140].forEach(cx=>{rounded(cx,y,38,30,7,'#7b5a42','#594231');rounded(cx+6,y+30,26,12,4,'#684936')});ctx.fillStyle='#6f503c';ctx.fillRect(x-16,y+8,12,24);ctx.fillRect(x+w-5,y+8,12,24)}
  else if(type==='tv'){rounded(x,y,w,h,8,'#493b34','#342b28');rounded(x+9,y+8,w-18,h-20,5,'#4e8190');ctx.fillStyle='#d8d27d';ctx.beginPath();ctx.arc(x+95,y+31,13,0,7);ctx.fill()}
  else if(type==='toy'){rounded(x,y,w,h,10,'#e6bb6c','#99794a');ctx.fillStyle='#d56c62';ctx.beginPath();ctx.arc(x+26,y+25,14,0,7);ctx.fill();ctx.fillStyle='#6886b1';ctx.fillRect(x+49,y+12,23,27)}
  else if(type==='book'){rounded(x,y,w,h,5,'#6273a1');rounded(x+27,y,w-27,h,5,'#c97959');ctx.strokeStyle='#f0e2c7';ctx.beginPath();ctx.moveTo(x+27,y+4);ctx.lineTo(x+27,y+h-4);ctx.stroke()}
@@ -114,9 +121,10 @@ function drawProp(p){let{x,y,w,h,type,label,task,distraction}=p;ctx.save();
  ctx.fillStyle='#3d3b32';ctx.font='12px system-ui';ctx.textAlign='center';ctx.fillText(label,x+w/2,y+h+16);ctx.restore();
  if(task&&((task==='laundry'&&washTimer>0)||tasks[task])){ctx.fillStyle='#427447';ctx.beginPath();ctx.arc(x+w-3,y+3,10,0,7);ctx.fill();ctx.fillStyle='white';ctx.font='bold 12px system-ui';ctx.fillText('✓',x+w-3,y+7)}
 }
-function drawPerson(x,y,color,label,dog=false,isDad=false){ctx.save();ctx.translate(x,y);if(dog){ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(0,0,18,12,0,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(15,-3,8,0,7);ctx.fill();ctx.fillStyle='#654f3e';ctx.beginPath();ctx.arc(17,-4,1.3,0,7);ctx.fill()}else if(isDad&&!player.awake){ctx.fillStyle='#0004';ctx.beginPath();ctx.ellipse(0,11,25,7,0,0,7);ctx.fill();ctx.fillStyle='#416b78';ctx.beginPath();ctx.ellipse(0,0,24,9,0,0,7);ctx.fill();ctx.fillStyle='#d9aa81';ctx.beginPath();ctx.arc(18,-2,7,0,7);ctx.fill();ctx.fillStyle='#47362b';ctx.beginPath();ctx.arc(20,-5,6,Math.PI,0);ctx.fill()}else{ctx.fillStyle='#0004';ctx.beginPath();ctx.ellipse(0,12,12,5,0,0,7);ctx.fill();ctx.fillStyle=isDad?'#416b78':color;ctx.beginPath();ctx.ellipse(0,2,11,14,0,0,7);ctx.fill();ctx.fillStyle=isDad?'#d9aa81':'#efc8a4';ctx.beginPath();ctx.arc(0,-12,8,0,7);ctx.fill();ctx.fillStyle='#47362b';ctx.beginPath();ctx.arc(0,-15,8,Math.PI,0);ctx.fill()}
- ctx.fillStyle=isDad?'#fff': '#342f2b';ctx.font='bold 11px system-ui';ctx.textAlign='center';ctx.fillText(label,0,dog?29:27);ctx.restore()}
-function draw(){roomDraw();props.forEach(drawProp);girls.forEach(g=>drawPerson(g.x,g.y,g.color,g.short,g.dog));drawPerson(player.x,player.y,'#416b78','Dad',false,true);
+function drawPerson(x,y,color,label,dog=false,isDad=false,bubble='',bubbleLeft=0){ctx.save();ctx.translate(x,y);if(dog){ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(0,0,18,12,0,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(15,-3,8,0,7);ctx.fill();ctx.fillStyle='#654f3e';ctx.beginPath();ctx.arc(17,-4,1.3,0,7);ctx.fill()}else if(isDad&&!player.awake){ctx.fillStyle='#0004';ctx.beginPath();ctx.ellipse(0,11,25,7,0,0,7);ctx.fill();ctx.fillStyle='#416b78';ctx.beginPath();ctx.ellipse(0,0,24,9,0,0,7);ctx.fill();ctx.fillStyle='#d9aa81';ctx.beginPath();ctx.arc(18,-2,7,0,7);ctx.fill();ctx.fillStyle='#47362b';ctx.beginPath();ctx.arc(20,-5,6,Math.PI,0);ctx.fill()}else{ctx.fillStyle='#0004';ctx.beginPath();ctx.ellipse(0,12,12,5,0,0,7);ctx.fill();ctx.fillStyle=isDad?'#416b78':color;ctx.beginPath();ctx.ellipse(0,2,11,14,0,0,7);ctx.fill();ctx.fillStyle=isDad?'#d9aa81':'#efc8a4';ctx.beginPath();ctx.arc(0,-12,8,0,7);ctx.fill();ctx.fillStyle='#47362b';ctx.beginPath();ctx.arc(0,-15,8,Math.PI,0);ctx.fill()}
+ ctx.fillStyle=isDad?'#fff': '#342f2b';ctx.font='bold 11px system-ui';ctx.textAlign='center';ctx.fillText(label,0,dog?29:27);
+ if(bubble&&bubbleLeft>0){ctx.font='bold 12px system-ui';const tw=ctx.measureText(bubble).width;rounded(-tw/2-8,-48,tw+16,24,8,'#fff8e4','#5d5548');ctx.fillStyle='#3b342b';ctx.fillText(bubble,0,-31)}ctx.restore()}
+function draw(){roomDraw();props.forEach(drawProp);girls.forEach(g=>drawPerson(g.x,g.y,g.color,g.short,g.dog,g.bubble||'',g.bubbleLeft||0));drawPerson(player.x,player.y,'#416b78','Dad',false,true);
  // Highlight nearby station and emphasize every usable door opening.
  const near=nearest();if(near){const p=near.p;ctx.strokeStyle='#fff3a7';ctx.lineWidth=3;ctx.setLineDash([6,4]);ctx.strokeRect(p.x-4,p.y-4,p.w+8,p.h+8);ctx.setLineDash([])}
  ctx.fillStyle='#eee2c3';ctx.font='11px system-ui';ctx.textAlign='center';ctx.fillText('OPEN DOOR',158,294);ctx.fillText('OPEN DOOR',477,294);ctx.fillText('OPEN DOOR',158,394);ctx.fillText('OPEN DOOR',477,394);ctx.fillText('OPEN DOOR',665,355);ctx.fillText('OPEN DOOR',665,496);ctx.fillText('EXIT',976,354);
@@ -131,6 +139,7 @@ function respond(g,style,task=null){let base=g.age<=6?72:g.age<=10?58:48;base+=g
 function interact(){if(ended||paused||opening)return;const found=nearest();if(!found){openDialog('Take a moment','Dad is not near a station. Choose a focus reset or close this conversation.',[{label:'Close and keep moving',run:()=>{}}]);return}const p=found.p;if(p.distraction){const g=girls.filter(x=>!x.dog)[Math.floor(Math.random()*3)];openDialog(`${g.short} is distracted`,`${g.short} is ${p.label==='Outside'?'headed toward the door':`fixated on the ${p.label.toLowerCase()}`}.`,[{label:'Use a calm request',run:()=>respond(g,'calm')},{label:'Give firm directions',run:()=>respond(g,'authoritarian')},{label:'Offer a small reward',run:()=>respond(g,'bribery')},{label:'Delegate the next step',run:()=>respond(g,'delegate')},{label:'Let it go',run:()=>temper=Math.max(0,temper-4)}]);return}if(!p.task)return;
  const current=taskOrder.find(k=>!tasks[k]);if(p.task.startsWith('bed')&&taskOrder.every(k=>tasks[k])){}else if(p.task!==current&&taskOrder.includes(p.task)){toast(`Do ${names[current].toLowerCase()} first.`);return}
  if(p.task==='laundry'){if(!tasks.laundry&&washTimer<=0){washTimer=6;toast('Laundry started—come back when the cycle finishes.')}else if(washTimer>0)toast(`Laundry is running (${Math.ceil(washTimer)}s).`);else toast('Laundry is already finished!');return}
+ if(p.task==='breakfast'){const seated=girls.filter(g=>!g.dog&&!g.asleep).filter(g=>g.x>380&&g.x<610&&g.y>510&&g.y<650).length;if(seated<3){girls.filter(g=>!g.dog&&!g.asleep).forEach((g,i)=>{g.tx=430+i*55;g.ty=610;g.agenda='sitting down for breakfast';g.bubble='Taking my seat';g.bubbleLeft=2.8});toast('Everyone needs to sit at the dining table first.');return}}
  if(tasks[p.task]){toast('That chore is already done.');return}
   const childChoices=girls.filter(g=>!g.dog&&!g.asleep).map(g=>({
     label:`${g.short} · mood ${Math.round(g.mood)}%`,
@@ -162,7 +171,12 @@ function step(now){const dt=Math.min(.04,(now-last)/1000);last=now;if(!ended&&!p
  if(opening){let arrived=0;girls.filter(g=>!g.dog).forEach(g=>{g.tx=145+(arrived++)*20;g.ty=145;const dx=g.tx-g.x,dy=g.ty-g.y,d=Math.hypot(dx,dy);if(d>2){const step=Math.min(d,g.speed*dt);g.x+=dx/d*step;g.y+=dy/d*step}else g.agenda='ready to wake Dad'});if(girls.slice(0,3).every(g=>Math.hypot(g.tx-g.x,g.ty-g.y)<3)&&elapsed>1){opening=false;player.awake=true;openDialog('Good morning, Dad','Elaina, Elsie, and Ellerle walk into the bedroom and wake you for breakfast. Today’s chores must happen in order.',[{label:'Get out of bed',run:()=>{player.x=135;player.y=150;toast('Breakfast is the first chore.')}},{label:'Ask for five quiet minutes',run:()=>temper=Math.min(100,temper+8)}])}}else{
  // Later, distracted children move continuously toward changing targets instead of teleporting.
  if(Math.floor(elapsed/10)!==Math.floor((elapsed-dt)/10)){const g=girls.filter(g=>!g.dog&&!g.asleep)[Math.floor(Math.random()*3)];if(g){const opts=[[800,430,'watching TV'],[750,570,'playing with toys'],[900,570,'reading a book'],[500,350,'wandering in the hall']];const o=opts[Math.floor(Math.random()*opts.length)];g.tx=o[0];g.ty=o[1];g.agenda=o[2]}}girls.forEach(g=>{if(g.asleep||g.dog)return;const dx=g.tx-g.x,dy=g.ty-g.y,d=Math.hypot(dx,dy);if(d>2){const step=Math.min(d,g.speed*dt);const nx=g.x+dx/d*step,ny=g.y+dy/d*step;if(!blockedChild(nx,ny,g)){g.x=nx;g.y=ny}}});}
- chaos=Math.max(0,chaos-dt*.3);if(elapsed>15){focus=Math.max(0,focus-dt*.08);temper=Math.max(0,temper-dt*.035)}if(temper<=0)ended='lose';
+ chaos=Math.max(0,chaos-dt*.3);
+ const charlie=girls.find(g=>g.dog);if(charlie){charlie.bubbleLeft=Math.max(0,(charlie.bubbleLeft||0)-dt);charlieTimer.next-=dt;if(charlieTimer.next<=0){charlieTimer.action=Math.random()<.58?'nap':'bark';if(charlieTimer.action==='bark'){charlie.tx=900;charlie.ty=360;charlie.agenda='barking at the window';charlie.bubble='Woof? Nothing…';charlie.bubbleLeft=4;charlieTimer.barkLeft=4}else{const spots=[[280,350],[560,520],[830,550],[210,220],[620,350]];const s=spots[Math.floor(Math.random()*spots.length)];charlie.tx=s[0];charlie.ty=s[1];charlie.agenda='napping in a doorway';charlie.bubble='Zzz…';charlie.bubbleLeft=5}charlieTimer.next=14+Math.random()*12}
+  if(charlieTimer.action==='bark'){const d=Math.hypot(charlie.tx-charlie.x,charlie.ty-charlie.y);if(d>2){charlie.x+=((charlie.tx-charlie.x)/d)*charlie.speed*dt;charlie.y+=((charlie.ty-charlie.y)/d)*charlie.speed*dt}else{charlieTimer.barkLeft=(charlieTimer.barkLeft||0)-dt;if(charlieTimer.barkLeft<=0){charlieTimer.action='nap';charlie.agenda='napping';charlie.bubble='Back to napping';charlie.bubbleLeft=2}}}else{const d=Math.hypot(charlie.tx-charlie.x,charlie.ty-charlie.y);if(d>2){charlie.x+=((charlie.tx-charlie.x)/d)*charlie.speed*.7*dt;charlie.y+=((charlie.ty-charlie.y)/d)*charlie.speed*.7*dt}else charlie.agenda='napping'}
+  girls.filter(g=>!g.dog&&!g.asleep).forEach(g=>{if(Math.hypot(g.x-charlie.x,g.y-charlie.y)<18&&charlieTimer.action==='nap'){g.bubble='I tripped over Charlie!';g.bubbleLeft=2.5;g.mood=Math.max(0,g.mood-4);temper=Math.max(0,temper-2)}})}
+ girls.filter(g=>!g.dog).forEach(g=>{g.bubbleLeft=Math.max(0,(g.bubbleLeft||0)-dt);if(g.mood<30&&(!g.bubble||g.bubbleLeft<=0)){g.bubble='I’m frustrated';g.bubbleLeft=2}});
+ if(elapsed>15){focus=Math.max(0,focus-dt*.08);temper=Math.max(0,temper-dt*.035)}if(temper<=0)ended='lose';
  }
  if(messageTimer>0){messageTimer-=dt;if(messageTimer<=0)$('toast').classList.remove('show')}updateUI();draw();requestAnimationFrame(step)}
 function updateUI(){let mins=Math.floor(elapsed/8),hh=7+Math.floor(mins/60),mm=mins%60;let ap=hh>=12?'PM':'AM';hh=hh%12||12;$('time').textContent=`${hh}:${String(mm).padStart(2,'0')} ${ap}`;$('focusN').textContent=`${Math.round(focus)}%`;$('focusB').style.width=`${focus}%`;$('temperN').textContent=`${Math.round(temper)}%`;$('temperB').style.width=`${temper}%`;
