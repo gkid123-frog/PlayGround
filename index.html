@@ -50,7 +50,7 @@
 (()=>{
 const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
 const W=1000,H=700,keys=new Set(),$=id=>document.getElementById(id);
-const player={x:135,y:110,r:13,speed:190,awake:false};
+const player={x:135,y:110,r:13,speed:260,awake:false};
 const rooms=[
  {x:25,y:25,w:300,h:260,name:"DAD'S BEDROOM",color:'#d9c9a7'},
  {x:340,y:25,w:310,h:260,name:"GIRLS' BEDROOM",color:'#e4c2b9'},
@@ -99,7 +99,7 @@ const girls=[
  {name:'Ellerle · 5',short:'Ellerle',x:430,y:210,tx:175,ty:170,color:'#d19439',agenda:'coming to wake Dad',speed:29,mood:75,history:0,age:5,tripCooldown:0},
  {name:'Charlie · Great Pyrenees',short:'Charlie',x:755,y:580,tx:755,ty:580,color:'#fff1d2',agenda:'napping',speed:17,mood:80,history:0,dog:true,age:8}
 ];
-let focus=100,temper=100,elapsed=0,last=performance.now(),messageTimer=0,ended='',washTimer=0,chaos=0,opening=true,paused=false,started=false,breakTimer=0;
+let focus=100,temper=100,elapsed=0,last=performance.now(),messageTimer=0,ended='',washTimer=0,chaos=0,opening=true,paused=false,started=false,breakTimer=0,lowTemperWarned=false;
 const charlieTimer={next:7,action:'napping',barkLeft:0};let openingRoutesStarted=false;
 function rounded(x,y,w,h,r,fill,stroke){ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()}}
 function roomDraw(){
@@ -148,10 +148,10 @@ function draw(){roomDraw();props.forEach(drawProp);girls.forEach(g=>drawPerson(g
 function nearest(){let best=null,dist=Infinity;for(const p of props){const d=Math.hypot(player.x-(p.x+p.w/2),player.y-(p.y+p.h/2));if(d<Math.max(p.w,p.h)/2+38&&d<dist){best={p,d};dist=d}}return best}
 function toast(t){const el=$('toast');el.textContent=t;el.classList.add('show');messageTimer=2.3}
 let dialogSeq=0;
-function openDialog(title,text,choices){paused=true;const seq=++dialogSeq;$('dialogTitle').textContent=title;$('dialogText').textContent=text;$('dialogChoices').innerHTML='';choices.forEach(c=>{const b=document.createElement('button');b.textContent=c.label;b.onclick=()=>{if(seq!==dialogSeq)return;c.run();if(seq===dialogSeq)closeDialog()};$('dialogChoices').appendChild(b)});$('dialogShade').classList.add('open');keys.clear()}
+function openDialog(title,text,choices){paused=true;const seq=++dialogSeq;$('dialogTitle').textContent=title;$('dialogText').textContent=text;$('dialogChoices').innerHTML='';choices.forEach(c=>{const b=document.createElement('button');b.textContent=c.label;b.onclick=()=>{if(seq!==dialogSeq)return;c.run();if(seq===dialogSeq&&c.keepOpen)return;if(seq===dialogSeq&&!$('dialogShade').classList.contains('open'))closeDialog();else if(seq===dialogSeq&&c.close!==false)closeDialog()};$('dialogChoices').appendChild(b)});$('dialogShade').classList.add('open');keys.clear()}
 function closeDialog(){$('dialogShade').classList.remove('open');paused=false;dialogSeq++}
-function respond(g,style,task=null){let base=g.age<=6?72:g.age<=10?58:48;base+=g.mood*.12-base*.08+g.history*2;if(style==='calm')base+=18;if(style==='authoritarian')base-=g.age<=6?12:g.age>=12?18:8;if(style==='bribery')base+=g.age>=12?-4:g.age<=6?22:12;if(style==='delegate')base+=g.age>=10?14:g.age<=6?-18:-2;const cooperate=Math.random()*100<Math.max(8,Math.min(92,base));if(cooperate){g.mood=Math.min(100,g.mood+(style==='authoritarian'?-2:7));g.history++;temper=Math.min(100,temper+(g.age>=12?5:7));focus=Math.min(100,focus+3);toast(`${g.short} cooperated!`)}else{g.mood=Math.max(0,g.mood-(style==='authoritarian'?18:style==='bribery'?8:5));g.history--;temper=Math.max(0,temper-(g.age<=6?10:14));toast(`${g.short} resisted. Dad's temper dropped.`)}g.agenda=cooperate?`${g.short==='Ellerle'?'helping a little with':'helping with'} ${task?names[task]:'the next chore'}`:'resisting the request';updateUI();return cooperate}
-function interact(){if(ended||paused||opening)return;const found=nearest();if(!found){openDialog('Take a moment','Dad is not near a station. Choose a focus reset or close this conversation.',[{label:'Close and keep moving',run:()=>{}}]);return}const p=found.p;if(p.distraction){const g=girls.filter(x=>!x.dog)[Math.floor(Math.random()*3)];openDialog(`${g.short} is distracted`,`${g.short} is ${p.label==='Outside'?'headed toward the door':`fixated on the ${p.label.toLowerCase()}`}.`,[{label:'Use a calm request',run:()=>respond(g,'calm')},{label:'Give firm directions',run:()=>respond(g,'authoritarian')},{label:'Offer a small reward',run:()=>respond(g,'bribery')},{label:'Delegate the next step',run:()=>respond(g,'delegate')},{label:'Let it go',run:()=>temper=Math.max(0,temper-4)}]);return}if(!p.task){
+function respond(g,style,task=null){let base=g.age<=6?72:g.age<=10?58:48;base+=g.mood*.12-base*.08+g.history*2;if(style==='calm')base+=18;if(style==='authoritarian')base-=g.age<=6?12:g.age>=12?18:8;if(style==='bribery')base+=g.age>=12?-4:g.age<=6?22:12;if(style==='delegate')base+=g.age>=10?14:g.age<=6?-18:-2;const cooperate=Math.random()*100<Math.max(8,Math.min(92,base));if(cooperate){g.mood=Math.min(100,g.mood+(style==='authoritarian'?-2:7));g.history++;const recovery=style==='calm'?5:style==='bribery'?4:style==='delegate'?6:2;temper=Math.min(100,temper+recovery);focus=Math.min(100,focus+3);toast(`${g.short} cooperated! Patience +${recovery}`)}else{g.mood=Math.max(0,g.mood-(style==='authoritarian'?18:style==='bribery'?8:5));g.history--;const loss=style==='authoritarian'?(g.age<=6?9:12):style==='bribery'?6:8;temper=Math.max(0,temper-loss);toast(`${g.short} resisted. Patience -${loss}`)}g.agenda=cooperate?`${g.short==='Ellerle'?'helping a little with':'helping with'} ${task?names[task]:'the next chore'}`:'resisting the request';updateUI();return cooperate}
+function interact(){if(ended||paused||opening)return;const found=nearest();const nearbyGirl=girls.find(g=>!g.dog&&!g.asleep&&Math.hypot(player.x-g.x,player.y-g.y)<90);if(!found&&nearbyGirl){openDialog(`Talk to ${nearbyGirl.short}`,`${nearbyGirl.short} is nearby. Ask her to move faster if she is wandering or resisting.`,[{label:'“Move faster, please.”',run:()=>promptGirlMove(nearbyGirl,'calm')},{label:'“Now—move it!”',run:()=>promptGirlMove(nearbyGirl,'firm')},{label:'“I’ll give you a reward if you hurry.”',run:()=>promptGirlMove(nearbyGirl,'reward')},{label:'Keep waiting',run:()=>{}}]);return}if(!found){openDialog('Take a moment','Dad is not near a station or girl. Choose a focus reset or close this conversation.',[{label:'Close and keep moving',run:()=>{}}]);return}const p=found.p;if(p.distraction){const g=girls.filter(x=>!x.dog)[Math.floor(Math.random()*3)];openDialog(`${g.short} is distracted`,`${g.short} is ${p.label==='Outside'?'headed toward the door':`fixated on the ${p.label.toLowerCase()}`}.`,[{label:'Use a calm request',run:()=>respond(g,'calm')},{label:'Give firm directions',run:()=>respond(g,'authoritarian')},{label:'Offer a small reward',run:()=>respond(g,'bribery')},{label:'Delegate the next step',run:()=>respond(g,'delegate')},{label:'Let it go',run:()=>temper=Math.max(0,temper-4)}]);return}if(!p.task){
   if(p.label==="Dad's bed"){
    if(['bedElaina','bedElsie','bedEllerle'].every(k=>tasks[k]))openDialog('Call it a day','All three girls are tucked in. Dad can finally climb into bed.',[{label:'Get into bed',run:()=>{ended='win';updateUI();}}]);
    else toast('The girls need to be tucked in first.');
@@ -163,7 +163,7 @@ function interact(){if(ended||paused||opening)return;const found=nearest();if(!f
  if(task==='breakfast'){const seated=girls.filter(g=>!g.dog&&!g.asleep).filter(g=>g.seatedAtTable).length;if(seated<3){girls.filter(g=>!g.dog&&!g.asleep).forEach((g,i)=>{g.seatedAtTable=false;setDestination(g,430+i*55,610,'breakfast');g.agenda='sitting down for breakfast';g.bubble='Taking my seat';g.bubbleLeft=2.8});toast('Everyone needs to sit at the dining table first.');return}}
  if(tasks[task]){toast('That chore is already done.');return}
   const childChoices=girls.filter(g=>!g.dog&&!g.asleep).map(g=>({
-    label:`${g.short} · mood ${Math.round(g.mood)}%`,
+    label:g.short,
     run:()=>openDialog(`Talk with ${g.short}`,`Choose how Dad approaches ${g.short} about ${names[task].toLowerCase()}.`,[
       {label:'“Let’s talk it through together.”',run:()=>delegateTask(g.short,task,'calm')},
       {label:'“You need to do this now.”',run:()=>delegateTask(g.short,task,'authoritarian')},
@@ -174,10 +174,11 @@ function interact(){if(ended||paused||opening)return;const found=nearest();if(!f
   openDialog(`Handle ${names[task]}`,
     `Dad can take care of this, or he can ask one of the girls to help.`,[
     {label:'“I’ll handle it.”',run:()=>completeTask(task)},
-    {label:'Ask for help…',run:()=>openDialog('Who will you ask?',`Choose a girl. Her age, mood, and history affect how she responds.`,childChoices)}
+    {label:'Ask for help…',run:()=>openDialog('Who will you ask?',`Choose a girl to delegate this step to.`,childChoices)}
   ]);
 }
 
+function promptGirlMove(g,style){let chance=style==='calm'?72:style==='reward'?82:58;if(g.mood<35)chance-=18;if(g.history<0)chance-=10;const complies=Math.random()*100<Math.max(15,Math.min(90,chance));if(complies){g.speed=Math.min(70,g.speed*1.45);g.mood=Math.min(100,g.mood+(style==='firm'?2:5));g.bubble='Okay, moving faster!';g.bubbleLeft=2.5;temper=Math.min(100,temper+(style==='calm'?4:style==='reward'?3:1));toast(`${g.short} picks up the pace. Patience increased.`)}else{g.mood=Math.max(0,g.mood-(style==='firm'?10:4));const loss=style==='firm'?12:5;temper=Math.max(0,temper-loss);g.bubble='I’m not moving yet';g.bubbleLeft=2.5;toast(`${g.short} ignores the request. Patience -${loss}`)}updateUI()}
 function delegateTask(name,task,style){const g=girls.find(x=>x.short===name);if(g&&respond(g,style,task))completeTask(task);else toast(`${g?g.short:'Child'} did not complete the chore; Dad can try another approach.`)}
 function completeTask(task){if(task.startsWith('bed')){const n=task.slice(3);const g=girls.find(g=>g.short.toLowerCase()===n.toLowerCase());const bed=props.find(p=>p.task===task);if(g&&bed){g.seatedAtTable=false;setDestination(g,bed.x+bed.w/2,bed.y+bed.h/2,task);g.agenda='heading to bed';g.bubble='Goodnight';g.bubbleLeft=2.5}return}tasks[task]=true;if(task==='breakfast')girls.forEach(g=>{g.seatedAtTable=false});if(task==='showers')girls.filter(g=>!g.dog).forEach(g=>g.agenda='fresh from a shower');focus=Math.min(100,focus+9);temper=Math.min(100,temper+4);toast(`${names[task]} — completed!`);updateUI()}
 // Wall collision and room-to-room navigation. NPCs follow explicit doorway waypoints,
@@ -211,7 +212,10 @@ function step(now){const dt=Math.min(.04,(now-last)/1000);last=now;if(started&&!
   if(charlie.route&&charlie.route.length){if(moveActor(charlie,dt,.7)){routeArrived(charlie);if(charlieTimer.action==='nap')charlie.agenda='napping'}}else if(charlieTimer.action==='bark'){charlieTimer.barkLeft=(charlieTimer.barkLeft||0)-dt;if(charlieTimer.barkLeft<=0){charlieTimer.action='nap';charlie.agenda='napping';charlie.bubble='Back to napping';charlie.bubbleLeft=2}}else charlie.agenda='napping'
   girls.filter(g=>!g.dog&&!g.asleep).forEach(g=>{if(Math.hypot(g.x-charlie.x,g.y-charlie.y)<18&&charlieTimer.action==='nap'){g.bubble='I tripped over Charlie!';g.bubbleLeft=2.5;g.mood=Math.max(0,g.mood-4);temper=Math.max(0,temper-2)}})}
  girls.filter(g=>!g.dog).forEach(g=>{g.bubbleLeft=Math.max(0,(g.bubbleLeft||0)-dt);if(g.mood<30&&(!g.bubble||g.bubbleLeft<=0)){g.bubble='I’m frustrated';g.bubbleLeft=2}});
- if(elapsed>15){focus=Math.max(0,focus-dt*.08);temper=Math.max(0,temper-dt*.035)}if(temper<=0)ended='lose';
+ if(elapsed>15){focus=Math.max(0,focus-dt*.08);temper=Math.max(0,temper-dt*.006)}
+  if(temper<=35&&!lowTemperWarned){lowTemperWarned=true;toast('⚠ Patience is running low—take a break or calm the girls!')}
+  if(temper>55)lowTemperWarned=false;
+  if(temper<=0)ended='lose';
  }
  if(messageTimer>0){messageTimer-=dt;if(messageTimer<=0)$('toast').classList.remove('show')}updateUI();draw();requestAnimationFrame(step)}
 function updateUI(){let mins=Math.floor(elapsed/8),hh=7+Math.floor(mins/60),mm=mins%60;let ap=hh>=12?'PM':'AM';hh=hh%12||12;$('time').textContent=`${hh}:${String(mm).padStart(2,'0')} ${ap}`;$('focusN').textContent=`${Math.round(focus)}%`;$('focusB').style.width=`${focus}%`;$('temperN').textContent=`${Math.round(temper)}%`;$('temperB').style.width=`${temper}%`;
