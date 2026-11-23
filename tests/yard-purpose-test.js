@@ -75,8 +75,8 @@ const { launch } = require('./browser');
   assert(movers.length >= 2, 'the girls run to different areas of the yard');
   assert(playNow.every(g => /playing outside/i.test(g.agenda)), 'the girls’ action log says they are playing outside');
 
-  // Sandbox play gives a bonding boost once per visit. Move the girls aside so
-  // Dad is interacting with the sandbox rather than chatting with a nearby girl.
+  // The sandbox launches the timing-based sandcastle game and keeps its result
+  // for the rest of this backyard visit.
   await page.evaluate(() => {
     __game.girls.filter(g => !g.dog).forEach((g, i) => { g.mood = 40; g.history = 1; g.x = 200 + i * 30; g.y = 300; g.route = []; });
     __game.player.x = 505;
@@ -85,26 +85,36 @@ const { launch } = require('./browser');
   await page.waitForTimeout(100);
   await page.evaluate(() => __game.interact());
   let d = await dialog();
-  assert(d.choices.some(c => /Play in the sandbox together/.test(c)), 'sandbox offers a shared activity');
+  assert(d.choices.some(c => /Build a sandcastle together/.test(c)), 'sandbox offers the sandcastle mini-game');
   assert(d.choices.some(c => /Play fetch with Charlie/.test(c)), 'sandbox offers fetch with Charlie');
   assert(d.choices.some(c => /Send the girls inside/.test(c)), 'yard actions include sending the girls inside');
-  await click('Play in the sandbox together');
+  await click('Build a sandcastle together');
+  assert((await page.evaluate(() => __game.miniState())).type === 'sandcastle', 'sandcastle mini-game opens from the yard choice');
+  const sandcastleBefore = await girls();
+  for (let drop = 1; drop <= 5; drop++) {
+    await page.evaluate(() => __game.miniPrimary());
+    await page.waitForFunction(n => __game.miniState().sandcastle.drops >= n, drop);
+  }
+  await page.waitForFunction(() => __game.miniState().phase === 'result');
   const sandbox = await state();
+  const sandboxGame = await page.evaluate(() => __game.miniState());
   const sandboxGirls = await girls();
-  assert(sandbox.sandboxPlayed === true, 'sandbox play is tracked for the visit');
-  assert(sandboxGirls.every(g => g.mood > 40), 'sandbox play raises the girls’ moods');
-  assert(sandboxGirls.every(g => g.history > 1), 'sandbox play builds goodwill');
-  assert(sandbox.outsidePlayBonus >= 2, 'sandbox play banks another cooperation boost');
-  assert(/Sandbox time/i.test(await toast()), 'sandbox toast explains the benefit');
+  assert(sandbox.sandboxPlayed === true && sandboxGame.sandcastle.drops === 5, 'completed castle is tracked for the visit');
+  assert(sandbox.sandcastleQuality === sandboxGame.sandcastle.quality, 'castle quality is retained in the yard');
+  assert(sandboxGirls.every((g, i) => g.mood > sandcastleBefore[i].mood), 'sandcastle rewards raise the girls’ moods');
+  assert(sandboxGirls.every((g, i) => g.history > sandcastleBefore[i].history), 'sandcastle rewards build goodwill');
+  assert(sandbox.outsidePlayBonus >= 1, 'a successful sandcastle banks cooperation');
+  await page.evaluate(() => __game.miniPrimary());
+  assert(/Sandcastle time/i.test(await toast()), 'sandcastle result explains its benefits');
 
-  const sandboxMoods = sandboxGirls.map(g => g.mood);
-  await page.evaluate(() => __game.playInSandbox());
+  const sandboxMoods = (await girls()).map(g => g.mood);
+  await page.evaluate(() => __game.startSandcastleGame());
   await page.waitForTimeout(120);
   const sandboxAgain = await state();
   const sandboxMoodsAgain = (await girls()).map(g => g.mood);
-  assert(/already had their sandbox time/i.test(await toast()), 'sandbox play is limited to once per visit');
-  assert(sandboxAgain.outsidePlayBonus === sandbox.outsidePlayBonus, 'repeat sandbox play cannot farm boosts');
-  assert(sandboxMoodsAgain.every((m, i) => Math.abs(m - sandboxMoods[i]) < 1), 'repeat sandbox play cannot farm moods');
+  assert(/already had their sandbox time/i.test(await toast()), 'sandcastle is limited to once per visit');
+  assert(sandboxAgain.outsidePlayBonus === sandbox.outsidePlayBonus, 'repeat sandcastle cannot farm boosts');
+  assert(sandboxMoodsAgain.every((m, i) => Math.abs(m - sandboxMoods[i]) < 1), 'repeat sandcastle cannot farm moods');
 
   // Cycling the girls inside and back out cannot refresh yard rewards.
   await page.evaluate(() => __game.sendGirlsInside());
@@ -118,28 +128,45 @@ const { launch } = require('./browser');
   assert(cycleAfter.outsidePlayBonus === cycleBefore.outsidePlayBonus, 're-calling after sending them inside cannot farm boosts');
   assert(cycleAfter.callBoostUsed === true, 'the outside call boost is once per trip');
   assert(cycleMoodsAfter.every((m, i) => Math.abs(m - cycleMoods[i]) < 1), 're-calling after sending them inside cannot farm moods');
-  await page.evaluate(() => __game.playInSandbox());
+  await page.evaluate(() => __game.startSandcastleGame());
   await page.waitForTimeout(100);
-  assert(/already had their sandbox time/i.test(await toast()), 'sandbox stays used for the whole backyard trip');
+  assert(/already had their sandbox time/i.test(await toast()), 'sandcastle stays used for the whole backyard trip');
 
-  // Fetch is a small Dad-and-Charlie reset, capped per visit.
+  // Fetch uses three throws and Charlie’s return for a score, with two games
+  // allowed per backyard visit.
+  const playFetchRound = async (round) => {
+    await page.evaluate(() => {
+      const target = __game.miniState().fetch.target;
+      __game.miniAim(target.x, target.y);
+      __game.miniPrimary();
+    });
+    if (round < 3) await page.waitForFunction(n => __game.miniState().fetch.round > n && __game.miniState().fetch.phase === 'aim', round);
+    else await page.waitForFunction(() => __game.miniState().phase === 'result');
+  };
   await page.evaluate(() => {
     __game.setFocus(50);
     __game.setTemper(50);
     __game.girls.find(g => g.dog).mood = 40;
+    __game.startFetchGame();
   });
-  await page.evaluate(() => __game.playFetch());
-  const fetch1 = await page.evaluate(() => ({ focus: __game.state().focus, temper: __game.state().temper, charlie: __game.girls.find(g => g.dog).mood, uses: __game.state().fetchUses }));
-  assert(fetch1.uses === 1, 'fetch is tracked for the visit');
+  assert((await page.evaluate(() => __game.miniState())).type === 'fetch', 'fetch mini-game opens with Charlie');
+  for (let round = 1; round <= 3; round++) await playFetchRound(round);
+  const fetch1 = await page.evaluate(() => ({ focus: __game.state().focus, temper: __game.state().temper, charlie: __game.girls.find(g => g.dog).mood, uses: __game.state().fetchUses, mini: __game.miniState().fetch }));
+  assert(fetch1.uses === 1, 'completed fetch is tracked for the visit');
   assert(fetch1.focus > 50, 'fetch restores Dad’s focus');
   assert(fetch1.temper > 50, 'fetch restores Dad’s patience');
   assert(fetch1.charlie > 40, 'fetch makes Charlie happy');
-  await page.evaluate(() => __game.playFetch());
+  assert(fetch1.mini.quality >= 60, 'accurate throws earn a good fetch result');
+  await page.evaluate(() => __game.miniPrimary());
+  assert(/Fetch time/i.test(await toast()), 'fetch result explains its benefits');
+
+  await page.evaluate(() => __game.startFetchGame());
+  for (let round = 1; round <= 3; round++) await playFetchRound(round);
   const fetch2 = await state();
-  await page.evaluate(() => __game.playFetch());
+  await page.evaluate(() => __game.startFetchGame());
   await page.waitForTimeout(120);
   const fetch3 = await state();
-  assert(fetch2.fetchUses === 2 && fetch3.fetchUses === 2, 'fetch is capped at two rounds per visit');
+  assert(fetch2.fetchUses === 2 && fetch3.fetchUses === 2, 'fetch is capped at two games per visit');
   assert(/tuckered out/i.test(await toast()), 'a third fetch explains the cap');
 
   // Returning inside resets the outdoor state.
