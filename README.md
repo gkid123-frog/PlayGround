@@ -28,6 +28,8 @@ A single-file browser RPG about getting three kids through a busy morning. Open 
 
 Complete breakfast, showers, laundry, lunch, dishes, afternoon activities, and dinner in order, then tuck in all three girls and get Dad to bed.
 
+**Backyard breather:** walk Dad into the exit door (or interact with it) and confirm to head outside. Fresh air restores some focus and patience, lifts the girls’ moods, and banks a cooperation boost for Dad’s next request. Charlie patrols the fence and barks at passing cars. Call the girls out to the sandbox for a bonding boost, play fetch with Charlie, then head back inside when it’s time to tackle the next chore.
+
 ## Tests
 
 ```sh
@@ -35,4 +37,4 @@ npm install
 npm test
 ```
 
-The suite starts a local static server and runs the full-day browser playtest, the mechanics checks, the Charlie nap/obstacle checks, and the opening-break regression test. See `tests/` for the individual scripts.
+The suite starts a local static server and runs the full-day browser playtest, the mechanics checks, the Charlie nap/obstacle checks, the opening-break regression test, and the backyard purpose checks. See `tests/` for the individual scripts.
