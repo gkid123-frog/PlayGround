@@ -4,7 +4,7 @@ const { launch } = require('./browser');
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   const errs = [];
   page.on('pageerror', e => errs.push(String(e)));
-  await page.goto((process.env.BASE_URL || 'http://localhost:3002') + '/index.html?debug=1');
+  await page.goto((process.env.BASE_URL || 'http://localhost:3002') + '/index.html?debug=1&v=' + Date.now());
   await page.click('#startGame');
   await page.waitForFunction(() => window.__game && __game.state().opening === false, { timeout: 30000 });
   if (await page.evaluate(() => document.querySelector('#dialogShade').classList.contains('open')))

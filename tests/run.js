@@ -25,7 +25,7 @@ function waitForServer(timeoutMs = 15000) {
   try {
     await waitForServer();
     process.env.BASE_URL = BASE;
-    for (const file of ['tests/playtest.js', 'tests/mechanics-test.js', 'tests/charlie-nap-test.js', 'tests/opening-break-test.js']) {
+    for (const file of ['tests/playtest.js', 'tests/mechanics-test.js', 'tests/charlie-nap-test.js', 'tests/opening-break-test.js', 'tests/yard-test.js']) {
       console.log(`\n===== ${file} =====`);
       const child = spawn(process.execPath, [file], { stdio: 'inherit', env: process.env });
       const code = await new Promise((res) => child.on('close', res));

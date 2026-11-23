@@ -1,6 +1,6 @@
 const { launch } = require('./browser');
 
-const URL = (process.env.BASE_URL || 'http://localhost:3002') + '/index.html?debug=1';
+const URL = (process.env.BASE_URL || 'http://localhost:3002') + '/index.html?debug=1&v=' + Date.now();
 const errors = [];
 const consoleErrors = [];
 const logs = [];
