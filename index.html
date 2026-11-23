@@ -80,7 +80,7 @@
 (()=>{
 const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
 const W=1000,H=700,keys=new Set(),$=id=>document.getElementById(id);
-const player={x:135,y:110,r:13,speed:260,awake:false};
+const player={x:97,y:68,r:13,speed:260,awake:false};
 const rooms=[
  {x:25,y:25,w:300,h:260,name:"DAD'S BEDROOM",color:'#d9c9a7'},
  {x:340,y:25,w:310,h:260,name:"GIRLS' BEDROOM",color:'#e4c2b9'},
@@ -104,10 +104,10 @@ walls.splice(2,2,[25,297,128,297],[188,297,447,297],[507,297,650,297]);
 walls.splice(5,2,[25,397,128,397],[188,397,447,397],[507,397,650,397]);
 // Main furniture, appliances, and interactable stations.
 const props=[
- {x:78,y:75,w:115,h:72,type:'bed',label:"Dad's bed"},
- {x:365,y:75,w:105,h:70,type:'bed',label:'Elaina bed',task:'bedElaina'},
- {x:505,y:75,w:105,h:70,type:'bed',label:'Elsie bed',task:'bedElsie'},
- {x:385,y:190,w:100,h:54,type:'bed',label:'Ellerle bed',task:'bedEllerle'},
+ {x:40,y:32,w:115,h:72,type:'bed',label:"Dad's bed"},
+ {x:344,y:32,w:72,h:56,type:'bed',label:'Elaina bed',task:'bedElaina'},
+ {x:459,y:32,w:72,h:56,type:'bed',label:'Elsie bed',task:'bedElsie'},
+ {x:574,y:32,w:72,h:56,type:'bed',label:'Ellerle bed',task:'bedEllerle'},
  {x:35,y:557,w:70,h:75,type:'tub',label:'Shower',task:'showers'},
  {x:265,y:420,w:50,h:58,type:'washer',label:'Washer',task:'laundry'},
  {x:265,y:495,w:50,h:58,type:'dryer',label:'Dryer',task:'laundry'},
@@ -137,9 +137,9 @@ const names={breakfast:'Make breakfast',showers:'Get showers & ready',laundry:'W
 const taskOrder=['breakfast','showers','laundry','lunch','dishes','afternoon','dinner'];
 const tasks={breakfast:false,showers:false,laundry:false,lunch:false,dishes:false,afternoon:false,dinner:false,bedElaina:false,bedElsie:false,bedEllerle:false};
 const girls=[
- {name:'Elaina · 12',short:'Elaina',x:455,y:120,tx:135,ty:130,color:'#aa5d72',agenda:'coming to wake Dad',speed:38,mood:55,history:0,age:12,tripCooldown:0},
- {name:'Elsie · 9',short:'Elsie',x:525,y:145,tx:155,ty:150,color:'#5572a6',agenda:'coming to wake Dad',speed:34,mood:65,history:0,age:9,tripCooldown:0},
- {name:'Ellerle · 5',short:'Ellerle',x:430,y:210,tx:175,ty:170,color:'#d19439',agenda:'coming to wake Dad',speed:29,mood:75,history:0,age:5,tripCooldown:0},
+ {name:'Elaina · 12',short:'Elaina',x:380,y:120,tx:135,ty:130,color:'#aa5d72',agenda:'coming to wake Dad',speed:38,mood:55,history:0,age:12,tripCooldown:0},
+ {name:'Elsie · 9',short:'Elsie',x:495,y:120,tx:155,ty:150,color:'#5572a6',agenda:'coming to wake Dad',speed:34,mood:65,history:0,age:9,tripCooldown:0},
+ {name:'Ellerle · 5',short:'Ellerle',x:610,y:120,tx:175,ty:170,color:'#d19439',agenda:'coming to wake Dad',speed:29,mood:75,history:0,age:5,tripCooldown:0},
  {name:'Charlie · Great Pyrenees',short:'Charlie',x:755,y:580,tx:755,ty:580,color:'#fff1d2',agenda:'napping',speed:17,mood:80,history:0,dog:true,age:8}
 ];
 let focus=100,temper=100,elapsed=0,last=performance.now(),messageTimer=0,ended='',washTimer=0,chaos=0,opening=true,paused=false,started=false,breakTimer=0,lowTemperWarned=false,stressLeft=0,focusWarned=false,coffeeCooldown=0,scene='house',charlieOutside=false,girlsOutside=false,exitPrompted=false,cars=[],supervisionCooldown=0,outsidePlayBonus=0,sandboxPlayed=false,sandcastleQuality=0,fetchUses=0,callBoostUsed=false;
@@ -201,7 +201,7 @@ function roomDraw(){
  ctx.fillStyle='#18251e';ctx.fillRect(0,0,W,H);
  // outdoor garden visible through the exterior doorway
  ctx.fillStyle='#73936b';ctx.fillRect(950,300,50,370);ctx.fillStyle='#9ab67a';ctx.fillRect(962,335,15,12);ctx.fillRect(973,590,14,14);
- rooms.forEach((r,i)=>{ctx.fillStyle=r.color;ctx.fillRect(r.x,r.y,r.w,r.h);ctx.fillStyle='#4b4539';ctx.fillRect(r.x,r.y,r.w,4);ctx.fillRect(r.x,r.y+r.h-4,r.w,4);ctx.fillRect(r.x,r.y,4,r.h);ctx.fillRect(r.x+r.w-4,r.y,4,r.h);ctx.fillStyle='#514a3e';ctx.font='bold 14px system-ui';ctx.textAlign='left';ctx.fillText(r.name,r.x+12,r.y+23)});
+ rooms.forEach((r,i)=>{ctx.fillStyle=r.color;ctx.fillRect(r.x,r.y,r.w,r.h);ctx.fillStyle='#4b4539';ctx.fillRect(r.x,r.y,r.w,4);ctx.fillRect(r.x,r.y+r.h-4,r.w,4);ctx.fillRect(r.x,r.y,4,r.h);ctx.fillRect(r.x+r.w-4,r.y,4,r.h);ctx.fillStyle='#514a3e';ctx.font='bold 14px system-ui';ctx.textAlign='left';ctx.fillText(r.name,r.x+12,i<2?r.y+r.h-14:r.y+23)});
  // Cut visible openings through bedroom skirting as well as the solid collision walls.
  ctx.fillStyle=rooms[0].color;ctx.fillRect(130,280,56,10);ctx.fillStyle=rooms[1].color;ctx.fillRect(449,280,56,10);
  // Floorboards / tiles add legible room texture.

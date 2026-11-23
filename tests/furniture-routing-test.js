@@ -7,12 +7,33 @@ const { launch } = require('./browser');
   page.on('pageerror', e => errors.push(String(e)));
   await page.goto((process.env.BASE_URL || 'http://localhost:3002') + '/index.html?debug=1&v=' + Date.now());
   await page.waitForFunction(() => window.__game, { timeout: 30000 });
+  const spawns = await page.evaluate(() => __game.girls.filter(g => !g.dog).map(g => ({ short: g.short, x: g.x, y: g.y, room: __game.roomAt(g.x, g.y), blocked: __game.blocked(g.x, g.y, g) })));
   await page.click('#startGame');
   await page.waitForFunction(() => __game.state().opening === false, { timeout: 30000 });
   if (await page.evaluate(() => document.querySelector('#dialogShade').classList.contains('open')))
     await page.evaluate(() => document.querySelector('#dialogChoices button').click());
+  const wakeRooms = await page.evaluate(() => __game.girls.filter(g => !g.dog).map(g => ({ short: g.short, room: __game.roomAt(g.x, g.y) })));
 
   const assert = (c, m) => { if (!c) throw new Error('ASSERT: ' + m); console.log('  ✓ ' + m); };
+
+  assert(spawns.every(s => !s.blocked && s.room === 'girls'), 'each girl starts on open bedroom floor: ' + JSON.stringify(spawns));
+  assert(wakeRooms.every(g => g.room === 'dad'), 'all three girls walk into Dad’s bedroom for the wake-up: ' + JSON.stringify(wakeRooms));
+
+  const bedrooms = await page.evaluate(() => {
+    const beds = __game.props.filter(p => p.type === 'bed');
+    const girlsBeds = beds.filter(b => b.task).sort((a, b) => a.x - b.x);
+    const gaps = girlsBeds.slice(1).map((b, i) => b.x - (girlsBeds[i].x + girlsBeds[i].w));
+    const midY = girlsBeds[0].y + girlsBeds[0].h / 2;
+    const gapCenters = gaps.map((gap, i) => [girlsBeds[i].x + girlsBeds[i].w + gap / 2, midY]);
+    return { beds, girlsBeds, gaps,
+      topWall: beds.every(b => b.y <= 40),
+      walkableGaps: gapCenters.every(([x, y]) => !__game.blocked(x, y)),
+      tuckSpotsClear: girlsBeds.every(b => !__game.blocked(b.x + b.w / 2, b.y + b.h + __game.player.r + 4)) };
+  });
+  assert(bedrooms.topWall && bedrooms.beds.length === 4, 'all four beds sit along the bedroom’s top wall');
+  assert(bedrooms.girlsBeds.length === 3 && bedrooms.gaps.every(g => g >= 40), 'girls’ beds line the top wall with walkable gaps (' + JSON.stringify(bedrooms.gaps) + ')');
+  assert(bedrooms.walkableGaps, 'the space between each pair of beds is walkable');
+  assert(bedrooms.tuckSpotsClear, 'every bed has a clear spot for Dad to tuck in');
 
   const geometry = await page.evaluate(() => {
     const couch = __game.props.find(p => p.type === 'couch');

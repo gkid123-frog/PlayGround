@@ -52,6 +52,8 @@ function log(...args) { const line = args.join(' '); logs.push(line); console.lo
   let d = await dialog();
   if (d.open) await clickChoice('Get out of bed');
   await page.waitForFunction(() => !__game.state().paused, { timeout: 5000 });
+  const wakeRooms = await page.evaluate(() => __game.girls.filter(g => !g.dog).map(g => ({ short: g.short, room: __game.roomAt(g.x, g.y), agenda: g.agenda })));
+  assert(wakeRooms.every(g => g.room === 'dad'), 'all three girls walk into Dad’s bedroom for the wake-up: ' + JSON.stringify(wakeRooms));
   assert((await state()).opening === false, 'opening scene completes and game unpauses');
 
   // Make NPC walking fast for flow testing, but keep behavior intact.
@@ -202,7 +204,7 @@ function log(...args) { const line = args.join(' '); logs.push(line); console.lo
 
   log('bedtime + win');
   const bedGirl = async (name) => {
-    const coords = { Elaina: [417, 160], Elsie: [557, 160], Ellerle: [435, 250] }[name];
+    const coords = { Elaina: [380, 105], Elsie: [495, 105], Ellerle: [610, 105] }[name];
     await interactAt(...coords);
     for (let i = 0; i < 12; i++) {
       const dlg = await dialog();
@@ -220,7 +222,7 @@ function log(...args) { const line = args.join(' '); logs.push(line); console.lo
   assert(true, 'Elsie tucked in');
   await bedGirl('Ellerle');
   assert(true, 'Ellerle tucked in');
-  await interactAt(135, 130);
+  await interactAt(97, 130);
   d = await dialog();
   assert(/Call it a day/.test(d.title), 'Dad can call it a day after all girls are tucked in');
   await clickChoice('Get into bed');
