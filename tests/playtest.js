@@ -110,7 +110,7 @@ function log(...args) { const line = args.join(' '); logs.push(line); console.lo
   assert(true, 'Elsie finishes her shower and the sequence advances');
   await interactAt(90, 520);
   await callShowerGirl('Ellerle');
-  await waitTask('showers');
+  await waitTask('showers').catch(async (e) => { log('  shower diagnostic: ' + JSON.stringify({ state: await state(), girls: await girls(), dlg: await dialog() })); throw e; });
   assert(true, 'all showers complete');
 
   log('laundry: delegation and cycle');
@@ -130,13 +130,13 @@ function log(...args) { const line = args.join(' '); logs.push(line); console.lo
   }
   const wash = (await state()).washTimer;
   assert(wash > 0, 'delegated laundry starts the wash cycle');
-  await waitTask('laundry', 15000);
+  await waitTask('laundry', 15000).catch(async (e) => { log('  laundry diagnostic: ' + JSON.stringify({ state: await state(), girls: await girls(), dlg: await dialog() })); throw e; });
   assert(true, 'laundry cycle finishes without freezing');
 
   log('lunch, dishes, afternoon, dinner');
   await interactAt(400, 520);
   await page.waitForTimeout(250);
-  await page.waitForFunction(() => __game.girls.filter(g => !g.dog).every(g => g.seatedAtTable), { timeout: 25000 });
+  await page.waitForFunction(() => __game.girls.filter(g => !g.dog).every(g => g.seatedAtTable), { timeout: 25000 }).catch(async (e) => { log('  lunch seating diagnostic: ' + JSON.stringify({ state: await state(), girls: await girls() })); throw e; });
   await interactAt(495, 560);
   await clickChoice('I’ll handle it');
   await waitTask('lunch');
@@ -190,6 +190,8 @@ function log(...args) { const line = args.join(' '); logs.push(line); console.lo
   // Put a girl next to Charlie and confirm hearts + mood boost.
   const heart = await page.evaluate(async () => {
     const c = __game.girls.find(g => g.dog);
+    c.route = [];
+    __game.charlieTimer.action = 'nap';
     const g = __game.girls[0];
     g.x = c.x + 10; g.y = c.y + 10; g.mood = 40; g.charlieNear = false;
     await new Promise(r => setTimeout(r, 250));
@@ -209,7 +211,8 @@ function log(...args) { const line = args.join(' '); logs.push(line); console.lo
       else if (/isn’t ready for bed/.test(dlg.title)) await clickChoice('Talk it through calmly');
       else break;
     }
-    await waitTask('bed' + name, 25000);
+    try { await waitTask('bed' + name, 25000); }
+    catch (e) { log('  bed diagnostic ' + name + ': ' + JSON.stringify({ girls: await girls(), dlg: await dialog() })); throw e; }
   };
   await bedGirl('Elaina');
   assert(true, 'Elaina tucked in');
