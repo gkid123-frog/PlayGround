@@ -23,6 +23,24 @@
 @media(max-width:700px) and (orientation:portrait){#app{grid-template-columns:1fr;grid-template-rows:minmax(0,1.15fr) minmax(0,1fr);gap:6px}.play{min-height:0}.panel{overflow:auto;max-height:none}.help{display:none}}
 @media(max-height:560px){.intro-shade{padding:8px}.intro-card{padding:12px 16px}.intro-card h1{font-size:24px;margin-bottom:4px}.intro-card p{margin:4px auto;line-height:1.35;font-size:12px}.intro-card .objective{padding:8px}.intro-card button{margin-top:6px;padding:8px 20px;font-size:15px}}
 </style>
+<style>
+.mini-shade{position:fixed;inset:0;z-index:40;display:none;align-items:center;justify-content:center;padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));background:#07100beF;touch-action:auto;overflow:auto}
+.mini-shade.open{display:flex}
+.mini-card{width:min(680px,96vw);max-height:calc(100dvh - 20px);overflow:auto;background:#24352b;border:1px solid #9db17c;border-radius:18px;padding:clamp(12px,2vw,20px);box-shadow:0 18px 60px #0009;touch-action:pan-y}
+.mini-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.mini-head h2{margin:0;color:#d8f28b;font-size:clamp(19px,3vw,25px);line-height:1.15}
+.mini-badge{flex:0 0 auto;padding:5px 9px;border:1px solid #708768;border-radius:999px;background:#17251c;color:#e9f3df;font-size:11px;font-weight:700;white-space:nowrap}
+.mini-text{margin:7px 0 10px;color:#e9f1e2;font-size:clamp(12px,1.7vw,14px);line-height:1.45}
+.mini-stage{display:flex;align-items:center;justify-content:center;width:100%}
+#miniCanvas{display:block;width:100%;height:auto;border:1px solid #71866d;border-radius:12px;background:#7ec87e;touch-action:none;cursor:crosshair}
+.mini-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.mini-actions button{flex:1 1 180px;padding:11px 12px;border-radius:11px;border:1px solid #708768;background:#354a3a;color:#f7f1df;font:700 15px system-ui;cursor:pointer;touch-action:manipulation}
+.mini-actions button:active{transform:translateY(1px)}
+#miniPrimary{background:#d8f28b;border-color:#c8e58a;color:#1b281d;font-weight:800}
+#miniQuit{flex:0 1 150px;background:#2a3b30;color:#d7e2d1}
+.mini-hint{margin:8px 0 0;color:#b9c7b9;font-size:11px;line-height:1.35;min-height:1.35em}
+@media(max-width:520px){.mini-card{padding:11px}.mini-head h2{font-size:19px}.mini-actions button{padding:12px 10px;font-size:15px}.mini-hint{font-size:10px}}
+</style>
 </head>
 <body>
 <main id="app">
@@ -49,6 +67,15 @@
 <button class="restart" id="restart">↻ Start a new day</button>
 </aside>
 </main>
+<div class="mini-shade" id="miniShade" aria-hidden="true">
+  <div class="mini-card" role="dialog" aria-modal="true" aria-labelledby="miniTitle">
+    <div class="mini-head"><h2 id="miniTitle">Backyard game</h2><span class="mini-badge" id="miniBadge"></span></div>
+    <p class="mini-text" id="miniText"></p>
+    <div class="mini-stage"><canvas id="miniCanvas" width="640" height="400" aria-label="Backyard activity mini-game"></canvas></div>
+    <div class="mini-actions"><button id="miniPrimary">Play</button><button id="miniQuit">Back to the yard</button></div>
+    <p class="mini-hint" id="miniHint"></p>
+  </div>
+</div>
 <script>
 (()=>{
 const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
@@ -111,12 +138,16 @@ const girls=[
  {name:'Ellerle · 5',short:'Ellerle',x:430,y:210,tx:175,ty:170,color:'#d19439',agenda:'coming to wake Dad',speed:29,mood:75,history:0,age:5,tripCooldown:0},
  {name:'Charlie · Great Pyrenees',short:'Charlie',x:755,y:580,tx:755,ty:580,color:'#fff1d2',agenda:'napping',speed:17,mood:80,history:0,dog:true,age:8}
 ];
-let focus=100,temper=100,elapsed=0,last=performance.now(),messageTimer=0,ended='',washTimer=0,chaos=0,opening=true,paused=false,started=false,breakTimer=0,lowTemperWarned=false,stressLeft=0,focusWarned=false,coffeeCooldown=0,scene='house',charlieOutside=false,girlsOutside=false,exitPrompted=false,cars=[],supervisionCooldown=0,outsidePlayBonus=0,sandboxPlayed=false,fetchUses=0,callBoostUsed=false;
+let focus=100,temper=100,elapsed=0,last=performance.now(),messageTimer=0,ended='',washTimer=0,chaos=0,opening=true,paused=false,started=false,breakTimer=0,lowTemperWarned=false,stressLeft=0,focusWarned=false,coffeeCooldown=0,scene='house',charlieOutside=false,girlsOutside=false,exitPrompted=false,cars=[],supervisionCooldown=0,outsidePlayBonus=0,sandboxPlayed=false,sandcastleQuality=0,fetchUses=0,callBoostUsed=false;
 let postMealTimer=0,openingDeadline=0;
  let dadBubble='',dadBubbleLeft=0,currentCallTask='';
  let showerOrder=[],showerIndex=0;
 const charlieTimer={next:7,action:'napping',barkLeft:0,checkCooldown:18,checkTarget:null,nudgeLeft:0,zoomieRooms:new Set(),lastRoom:'living'};
  const mealUrgency={lunch:{due:720,warned:false,lateWarned:false,penaltyStep:0,lateStarted:null},dinner:{due:1020,warned:false,lateWarned:false,penaltyStep:0,lateStarted:null}};let crankyMode=false,openingRoutesStarted=false;
+ const miniGame={active:false,type:'',phase:'',time:0,last:0,closeToast:'',resultTitle:'',resultText:''};
+ const sandMini={tiers:[],dropCount:0,quality:15,perfect:0,good:0,miss:0,needle:.2,dir:1,speed:.62,targetStart:.38,targetEnd:.52,wideStart:.25,wideEnd:.65,feedback:'',feedbackColor:'#fff8e4',feedbackLeft:0,floaters:[],girlCheer:0};
+ const fetchMini={round:1,rounds:3,score:0,maxScore:390,phase:'aim',aim:{x:320,y:195},target:{x:320,y:180,r:29},ball:{x:320,y:330,tx:320,ty:180,t:0},charlie:{x:220,y:345,carrying:false,step:0},returnStart:{x:0,y:0},returnTotal:1,returnProgress:0,praiseUsed:false,praiseResult:'',roundScore:0,lastThrowScore:0,lastPraise:0,feedback:'',feedbackLeft:0,endingTimer:0,dust:[]};
+
  function scheduledDayMinutes(){
    let minutes=420+Math.floor(elapsed);
    if(tasks.lunch)minutes=Math.max(minutes,720);
@@ -203,6 +234,20 @@ function moodSymbol(mood){return mood>=80?'😄':mood>=60?'🙂':mood>=40?'😐'
  function drawPerson(x,y,color,label,dog=false,isDad=false,bubble='',bubbleLeft=0,mood=50){ctx.save();ctx.translate(x,y);if(dog){ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(0,0,18,12,0,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(15,-3,8,0,7);ctx.fill();ctx.fillStyle='#654f3e';ctx.beginPath();ctx.arc(17,-4,1.3,0,7);ctx.fill()}else if(isDad&&!player.awake){ctx.fillStyle='#0004';ctx.beginPath();ctx.ellipse(0,11,25,7,0,0,7);ctx.fill();ctx.fillStyle='#416b78';ctx.beginPath();ctx.ellipse(0,0,24,9,0,0,7);ctx.fill();ctx.fillStyle='#d9aa81';ctx.beginPath();ctx.arc(18,-2,7,0,7);ctx.fill();ctx.fillStyle='#47362b';ctx.beginPath();ctx.arc(20,-5,6,Math.PI,0);ctx.fill()}else{ctx.fillStyle='#0004';ctx.beginPath();ctx.ellipse(0,12,12,5,0,0,7);ctx.fill();ctx.fillStyle=isDad?'#416b78':color;ctx.beginPath();ctx.ellipse(0,2,11,14,0,0,7);ctx.fill();ctx.fillStyle=isDad?'#d9aa81':'#efc8a4';ctx.beginPath();ctx.arc(0,-12,8,0,7);ctx.fill();ctx.fillStyle='#47362b';ctx.beginPath();ctx.arc(0,-15,8,Math.PI,0);ctx.fill()}
  ctx.fillStyle=isDad?'#fff': '#342f2b';ctx.font='bold 11px system-ui';ctx.textAlign='center';ctx.fillText(label,0,dog?29:27);
  if(!dog&&!isDad){ctx.font='17px system-ui, "Apple Color Emoji", "Segoe UI Emoji"';ctx.textAlign='center';ctx.fillText(moodSymbol(mood),0,-39)}if(bubble&&bubbleLeft>0){ctx.font='bold 12px system-ui';const tw=ctx.measureText(bubble).width;rounded(-tw/2-8,-70,tw+16,24,8,'#fff8e4','#5d5548');ctx.fillStyle='#3b342b';ctx.fillText(bubble,0,-53)}ctx.restore()}
+function drawYardSandcastle(cx,baseY,quality){
+ const tiers=quality>=90?5:quality>=65?4:3;
+ for(let i=0;i<tiers;i++){
+  const w=78-i*9,h=15,x=cx-w/2,y=baseY-(i+1)*h;
+  ctx.fillStyle=i%2?'#e2c58a':'#d8b46c';ctx.strokeStyle='#b28d56';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.roundRect(x,y,w,h,2);ctx.fill();ctx.stroke();
+  for(let bx=x+4;bx<x+w-3;bx+=11){ctx.fillStyle='#efd8a2';ctx.fillRect(bx,y-3,5,3)}
+  ctx.fillStyle='#8d6b3e';ctx.beginPath();ctx.arc(cx,y+h*.55,2,Math.PI,0);ctx.fill();
+ }
+ const topY=baseY-tiers*15;
+ ctx.strokeStyle='#6b4a2a';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx,topY);ctx.lineTo(cx,topY-18);ctx.stroke();
+ ctx.fillStyle=quality>=65?'#d96c62':'#c7a568';ctx.beginPath();ctx.moveTo(cx,topY-18);ctx.lineTo(cx+14,topY-13);ctx.lineTo(cx,topY-8);ctx.closePath();ctx.fill();
+ ctx.fillStyle='#b98b4f';ctx.beginPath();ctx.arc(cx-44,baseY-2,3,0,7);ctx.arc(cx+41,baseY-3,2.5,0,7);ctx.fill();
+}
 function drawYard(){ctx.fillStyle='#87b6d9';ctx.fillRect(0,0,W,120);ctx.fillStyle='#7ec87e';ctx.fillRect(0,120,W,H-120);ctx.fillStyle='#6bb06b';ctx.fillRect(0,600,W,100);
  // sidewalk + street
  ctx.fillStyle='#c9c2ad';ctx.fillRect(880,0,120,H);ctx.fillStyle='#9a9380';ctx.fillRect(930,0,70,H);ctx.strokeStyle='#f5e9c8';ctx.lineWidth=2;ctx.setLineDash([12,10]);ctx.beginPath();ctx.moveTo(965,0);ctx.lineTo(965,H);ctx.stroke();ctx.setLineDash([]);
@@ -220,6 +265,8 @@ function drawYard(){ctx.fillStyle='#87b6d9';ctx.fillRect(0,0,W,120);ctx.fillStyl
  yardTrees.forEach(t=>{ctx.fillStyle='#6b4a2a';ctx.fillRect(t.x-4,t.y+t.r/2,8,t.r);ctx.fillStyle='#5f8f4f';ctx.beginPath();ctx.arc(t.x,t.y,t.r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#79a864';ctx.beginPath();ctx.arc(t.x-6,t.y+4,t.r*0.6,0,Math.PI*2);ctx.fill()});
  // sandbox
  ctx.fillStyle='#e7d3a3';ctx.fillRect(430,430,150,130);ctx.strokeStyle='#b99a6a';ctx.lineWidth=3;ctx.strokeRect(430,430,150,130);ctx.fillStyle='#d9c08a';ctx.fillRect(440,440,130,110);
+ if(sandboxPlayed)drawYardSandcastle(505,538,sandcastleQuality);
+ if(fetchUses>0){ctx.fillStyle='#d8e46d';ctx.beginPath();ctx.arc(820,560,5,0,7);ctx.fill();ctx.strokeStyle='#f7f7d0';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(818,559,3,Math.PI*.2,Math.PI*1.2);ctx.stroke()}
  // cars on the street
  cars.forEach(c=>{ctx.fillStyle='#d94b4b';ctx.fillRect(c.x-12,c.y-8,24,16);ctx.fillStyle='#f5e9c8';ctx.fillRect(c.x-8,c.y-4,16,8);ctx.fillStyle='#3d3b32';ctx.fillRect(c.x-10,c.y+6,6,4);ctx.fillRect(c.x+4,c.y+6,6,4)});
  // label
@@ -265,7 +312,7 @@ function taskSpot(task,g){const i=Math.max(0,girls.filter(x=>!x.dog).indexOf(g))
    showerParenting(next)
   }
   function retryCallWithStyle(g,task,style){if(respond(g,style,task)){g.bubble='Okay, I’ll come help!';g.bubbleLeft=2.8;sendGirlToTask(g,task);if(task==='showers'){g.callStatus='showering';g.routeMode='shower'}}}
-  function interact(){if(ended||paused||opening)return;if(scene==='yard'){handleYardInteract();return}const found=nearest();const closeGirls=girls.filter(g=>!g.dog&&!g.asleep&&Math.hypot(player.x-g.x,player.y-g.y)<90);const nearbyGirl=closeGirls.find(g=>g.callStatus==='wandering')||closeGirls[0];const nearbyCharlie=girls.find(g=>g.dog&&Math.hypot(player.x-g.x,player.y-g.y)<90);if(nearbyCharlie&&charlieIsNapping()){openDialog('Charlie is napping','Charlie is fast asleep and blocking the way. What should Dad do?',[{label:'Wake him up',run:()=>{nearbyCharlie.agenda='getting up';nearbyCharlie.bubble='Huh? Okay!';nearbyCharlie.bubbleLeft=2;charlieTimer.action='nap';charlieTimer.next=6+Math.random()*4;const spots=[[280,350],[560,520],[830,550],[210,220],[620,350],[440,350]];const s=spots[Math.floor(Math.random()*spots.length)];setDestination(nearbyCharlie,s[0],s[1],'charlie');toast('Charlie gets up and moves.')}},{label:'Pet him',run:()=>{nearbyCharlie.mood=Math.min(100,nearbyCharlie.mood+5);temper=Math.min(100,temper+1);focus=Math.min(100,focus+1);toast('Dad pets Charlie. Patience +1, Focus +1')}},{label:'Let him sleep',run:()=>{toast('Dad lets Charlie nap.')}}]);return}if(nearbyGirl&&currentCallTask&&['wandering','refusing'].includes(nearbyGirl.callStatus)){const task=currentCallTask;openDialog(`Fetch ${nearbyGirl.short}`,`${nearbyGirl.short} ${nearbyGirl.callStatus==='wandering'?'wandered off':'is putting off helping'} with ${names[task].toLowerCase()}. Dad has found her—time for a friendly redirect.`,[{label:`“Back to ${names[task].toLowerCase()}, please.”`,run:()=>redirectGirl(nearbyGirl,task)},{label:'Try a calm request',run:()=>retryCallWithStyle(nearbyGirl,task,'calm')},{label:'Set a firm boundary',run:()=>retryCallWithStyle(nearbyGirl,task,'authoritarian')},{label:'Offer a small reward',run:()=>retryCallWithStyle(nearbyGirl,task,'bribery')},{label:'Ask her to take responsibility',run:()=>retryCallWithStyle(nearbyGirl,task,'delegate')},{label:'“Move along a little faster, please.”',run:()=>promptGirlMove(nearbyGirl,'calm')},{label:'Cheer her up and encourage her',run:()=>cheerGirl(nearbyGirl)},{label:'Let her finish her detour',run:()=>{nearbyGirl.bubble='Thanks, Dad!';nearbyGirl.bubbleLeft=2.5;}}]);return}if(!found&&nearbyGirl){openDialog(`Talk to ${nearbyGirl.short}`,`${nearbyGirl.short} is nearby. Ask her to move faster if she is wandering or resisting.`,[{label:'“Move faster, please.”',run:()=>promptGirlMove(nearbyGirl,'calm')},{label:'“Now—move it!”',run:()=>promptGirlMove(nearbyGirl,'firm')},{label:'“I’ll give you a reward if you hurry.”',run:()=>promptGirlMove(nearbyGirl,'reward')},{label:'Cheer her up and encourage her',run:()=>cheerGirl(nearbyGirl)},{label:'Keep waiting',run:()=>{}}]);return}if(!found){openDialog('Take a moment','Dad is not near a station or girl. Choose a focus reset or close this conversation.',[{label:'Close and keep moving',run:()=>{}}]);return}const p=found.p;if(p.label==='Outside'){openDialog('Go outside?','Are you sure you want to go outside?',[{label:'Yes, go outside',run:()=>goOutside()},{label:'No, stay inside',run:()=>{}}]);return}if(p.distraction){const g=girls.filter(x=>!x.dog)[Math.floor(Math.random()*3)];openDialog(`${g.short} is distracted`,`${g.short} is ${p.label==='Outside'?'headed toward the door':`fixated on the ${p.label.toLowerCase()}`}.`,[{label:'Use a calm request',run:()=>respond(g,'calm')},{label:'Give firm directions',run:()=>respond(g,'authoritarian')},{label:'Offer a small reward',run:()=>respond(g,'bribery')},{label:'Delegate the next step',run:()=>respond(g,'delegate')},{label:'Let it go',run:()=>temper=Math.max(0,temper-4)}]);return}if(!p.task){
+  function interact(){if(ended||paused||opening||miniGame.active)return;if(scene==='yard'){handleYardInteract();return}const found=nearest();const closeGirls=girls.filter(g=>!g.dog&&!g.asleep&&Math.hypot(player.x-g.x,player.y-g.y)<90);const nearbyGirl=closeGirls.find(g=>g.callStatus==='wandering')||closeGirls[0];const nearbyCharlie=girls.find(g=>g.dog&&Math.hypot(player.x-g.x,player.y-g.y)<90);if(nearbyCharlie&&charlieIsNapping()){openDialog('Charlie is napping','Charlie is fast asleep and blocking the way. What should Dad do?',[{label:'Wake him up',run:()=>{nearbyCharlie.agenda='getting up';nearbyCharlie.bubble='Huh? Okay!';nearbyCharlie.bubbleLeft=2;charlieTimer.action='nap';charlieTimer.next=6+Math.random()*4;const spots=[[280,350],[560,520],[830,550],[210,220],[620,350],[440,350]];const s=spots[Math.floor(Math.random()*spots.length)];setDestination(nearbyCharlie,s[0],s[1],'charlie');toast('Charlie gets up and moves.')}},{label:'Pet him',run:()=>{nearbyCharlie.mood=Math.min(100,nearbyCharlie.mood+5);temper=Math.min(100,temper+1);focus=Math.min(100,focus+1);toast('Dad pets Charlie. Patience +1, Focus +1')}},{label:'Let him sleep',run:()=>{toast('Dad lets Charlie nap.')}}]);return}if(nearbyGirl&&currentCallTask&&['wandering','refusing'].includes(nearbyGirl.callStatus)){const task=currentCallTask;openDialog(`Fetch ${nearbyGirl.short}`,`${nearbyGirl.short} ${nearbyGirl.callStatus==='wandering'?'wandered off':'is putting off helping'} with ${names[task].toLowerCase()}. Dad has found her—time for a friendly redirect.`,[{label:`“Back to ${names[task].toLowerCase()}, please.”`,run:()=>redirectGirl(nearbyGirl,task)},{label:'Try a calm request',run:()=>retryCallWithStyle(nearbyGirl,task,'calm')},{label:'Set a firm boundary',run:()=>retryCallWithStyle(nearbyGirl,task,'authoritarian')},{label:'Offer a small reward',run:()=>retryCallWithStyle(nearbyGirl,task,'bribery')},{label:'Ask her to take responsibility',run:()=>retryCallWithStyle(nearbyGirl,task,'delegate')},{label:'“Move along a little faster, please.”',run:()=>promptGirlMove(nearbyGirl,'calm')},{label:'Cheer her up and encourage her',run:()=>cheerGirl(nearbyGirl)},{label:'Let her finish her detour',run:()=>{nearbyGirl.bubble='Thanks, Dad!';nearbyGirl.bubbleLeft=2.5;}}]);return}if(!found&&nearbyGirl){openDialog(`Talk to ${nearbyGirl.short}`,`${nearbyGirl.short} is nearby. Ask her to move faster if she is wandering or resisting.`,[{label:'“Move faster, please.”',run:()=>promptGirlMove(nearbyGirl,'calm')},{label:'“Now—move it!”',run:()=>promptGirlMove(nearbyGirl,'firm')},{label:'“I’ll give you a reward if you hurry.”',run:()=>promptGirlMove(nearbyGirl,'reward')},{label:'Cheer her up and encourage her',run:()=>cheerGirl(nearbyGirl)},{label:'Keep waiting',run:()=>{}}]);return}if(!found){openDialog('Take a moment','Dad is not near a station or girl. Choose a focus reset or close this conversation.',[{label:'Close and keep moving',run:()=>{}}]);return}const p=found.p;if(p.label==='Outside'){openDialog('Go outside?','Are you sure you want to go outside?',[{label:'Yes, go outside',run:()=>goOutside()},{label:'No, stay inside',run:()=>{}}]);return}if(p.distraction){const g=girls.filter(x=>!x.dog)[Math.floor(Math.random()*3)];openDialog(`${g.short} is distracted`,`${g.short} is ${p.label==='Outside'?'headed toward the door':`fixated on the ${p.label.toLowerCase()}`}.`,[{label:'Use a calm request',run:()=>respond(g,'calm')},{label:'Give firm directions',run:()=>respond(g,'authoritarian')},{label:'Offer a small reward',run:()=>respond(g,'bribery')},{label:'Delegate the next step',run:()=>respond(g,'delegate')},{label:'Let it go',run:()=>temper=Math.max(0,temper-4)}]);return}if(!p.task){
   if(p.label==='Coffee'){
    if(focus>=60){toast('Dad is still sharp. Save the coffee for when focus dips.');return}
    if(coffeeCooldown>0){toast(`The coffee is still brewing (${Math.ceil(coffeeCooldown)}s).`);return}
@@ -338,7 +385,7 @@ function blocked(x,y,exclude=null){if(scene==='yard')return blockedYard(x,y,excl
  [20,20,980,20],[20,20,20,680],[20,680,980,680],[980,20,980,298],[980,380,980,680],
  ...walls
  ];for(const [x1,y1,x2,y2]of segs){const dx=x2-x1,dy=y2-y1,l=dx*dx+dy*dy,t=Math.max(0,Math.min(1,((x-x1)*dx+(y-y1)*dy)/l)),px=x1+t*dx,py=y1+t*dy;if(Math.hypot(x-px,y-py)<r+4)return true}if(exclude!==girls.find(g=>g.dog)&&charlieIsNapping()){const c=girls.find(g=>g.dog);if(Math.hypot(x-c.x,y-c.y)<34)return true}return false}
-function step(now){const dt=Math.min(.04,(now-last)/1000);last=now;try{if(started&&!ended&&!paused){elapsed+=dt;updateMealUrgency();if(washTimer>0){washTimer-=dt;if(washTimer<=0){washTimer=0;tasks.laundry=true;clearCall('laundry');toast('Laundry is clean and dry!')}}
+function step(now){const dt=Math.min(.04,(now-last)/1000);last=now;try{if(started&&!ended&&!paused&&!miniGame.active){elapsed+=dt;updateMealUrgency();if(washTimer>0){washTimer-=dt;if(washTimer<=0){washTimer=0;tasks.laundry=true;clearCall('laundry');toast('Laundry is clean and dry!')}}
  if(postMealTimer>0){postMealTimer-=dt;if(postMealTimer<=0&&scene==='house'){girls.filter(g=>!g.dog&&!g.asleep).forEach((g,i)=>{g.seatedAtTable=false;g.route=[];g.routeMode='';g.agenda='getting up from the table';const activities=[[810,430,'Watching TV','Watching TV'],[750,570,'Playing with toys','Playing with toys'],[885,575,'Reading a book','Reading a book'],[470,130,'reading in bed','Laying in bed reading'],[525,145,'reading in bed','Laying in bed reading'],[430,210,'reading in bed','Laying in bed reading'],[510,350,'Taking a walk','Taking a walk']];const o=activities[(i+Math.floor(elapsed)%activities.length)%activities.length];g.agenda=o[3];setDestination(g,o[0],o[1],'activity')})}}
  let dx=0,dy=0;if(player.awake&&(keys.has('ArrowLeft')||keys.has('a')))dx--;if(player.awake&&(keys.has('ArrowRight')||keys.has('d')))dx++;if(player.awake&&(keys.has('ArrowUp')||keys.has('w')))dy--;if(player.awake&&(keys.has('ArrowDown')||keys.has('s')))dy++;const dadSpeed=player.speed*(focus<30?.78:focus<60?.9:1);const mag=Math.hypot(dx,dy)||1;dx=dx/mag*dadSpeed*dt;dy=dy/mag*dadSpeed*dt;
  if(player.awake&&dx&&!blocked(player.x+dx,player.y))player.x+=dx;if(player.awake&&dy&&!blocked(player.x,player.y+dy))player.y+=dy;if(scene==='house'&&!exitPrompted&&!paused&&!$('dialogShade').classList.contains('open')&&player.awake&&player.x>972&&player.y>300&&player.y<376){exitPrompted=true;openDialog('Go outside?','Dad is at the exit door. Go outside?',[{label:'Yes, go outside',run:()=>{exitPrompted=false;goOutside()}},{label:'No, stay inside',run:()=>{player.x=948;exitPrompted=true}}])}if(scene==='house'&&(player.x<960||player.y<296||player.y>380))exitPrompted=false;
@@ -364,25 +411,513 @@ function step(now){const dt=Math.min(.04,(now-last)/1000);last=now;try{if(starte
   if(focus>55)focusWarned=false;
   if(temper<=0)ended='lose';
  }
- if(started&&!ended&&!opening&&!player.awake&&!paused&&!$('dialogShade').classList.contains('open')){openWakeDialog()}
+ if(started&&!ended&&!opening&&!player.awake&&!paused&&!miniGame.active&&!$('dialogShade').classList.contains('open')){openWakeDialog()}
  if(messageTimer>0){messageTimer-=dt;if(messageTimer<=0)$('toast').classList.remove('show')}updateUI();draw()}catch(err){if(!window.__gameErrorShown){window.__gameErrorShown=true;console.error('Recovered from game error:',err);toast('Dad hit a snag—recovering…')}}requestAnimationFrame(step)}
 function updateUI(){const dayMinutes=scheduledDayMinutes();let hh=Math.floor(dayMinutes/60),mm=dayMinutes%60;let ap=hh>=12?'PM':'AM';hh=hh%12||12;$('time').textContent=`${hh}:${String(mm).padStart(2,'0')} ${ap}`;$('focusN').textContent=`${Math.round(focus)}%`;$('focusB').style.width=`${focus}%`;$('focusB').style.background=focus<35?'#e2a45e':'#a5d86e';$('temperN').textContent=`${Math.round(temper)}%`;$('temperB').style.width=`${temper}%`;$('temperB').style.background=temper<35?'#ff6b5a':'#f18465';const clockLabel=$('clockLabel');if(clockLabel)clockLabel.textContent=scene==='yard'?'📍 Yard':'🕒 Tuesday';const dadNote=$('dadNote');if(dadNote){const baseNote=temper<35?'Patience is thin. A dad break will help.':focus<45&&coffeeCooldown<=0?'Dad needs coffee—the kitchen coffee maker is ready.':focus<45&&coffeeCooldown>0?'Coffee is brewing—give it a moment.':focus<35?'Dad is running on fumes—coffee or a break will help.':'Focus keeps Dad steady. Low focus slows Dad and makes resistance cost more temper.';dadNote.textContent=scene==='yard'?`Backyard breather: fresh air restores focus and patience.${outsidePlayBonus>0?` Next request +${outsidePlayBonus*6}% cooperation.`:''}`:baseNote+(outsidePlayBonus>0?` Fresh-air boost: +${outsidePlayBonus*6}% cooperation.`:'')}const breakBtn=$('break');breakBtn.textContent=breakTimer>0?`☕ Break ready in ${Math.ceil(breakTimer)}s`:'☕ Take a dad break';
  $('kids').innerHTML=girls.map(g=>`<div class="kid"><span>${g.name}</span><span>${g.agenda}</span></div>`).join('');$('tasks').innerHTML=Object.entries(names).map(([k,n])=>`<div class="${tasks[k]?'done':''}">${tasks[k]?'✓':'○'} ${n}${k==='laundry'&&washTimer>0?` · ${Math.ceil(washTimer)}s`:''}</div>`).join('');const near=nearest();$('act').textContent=near?'E · '+(near.p.label|| (near.p.task==='meal'?'Meal':near.p.task==='laundry'?'Laundry':'Interact')):(scene==='yard'?'E · Yard':'E · Interact')}
-window.addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();if(e.key.toLowerCase()==='b'){if(!e.repeat)openDadBreak()}else if(e.key.toLowerCase()==='e'||e.key===' '){if(!e.repeat)interact()}else keys.add(e.key)});window.addEventListener('keyup',e=>keys.delete(e.key));window.addEventListener('blur',()=>keys.clear());
+window.addEventListener('keydown',e=>{if(miniGame.active){handleMiniKeyDown(e);return}if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();if(e.key.toLowerCase()==='b'){if(!e.repeat)openDadBreak()}else if(e.key.toLowerCase()==='e'||e.key===' '){if(!e.repeat)interact()}else keys.add(e.key)});window.addEventListener('keyup',e=>{if(miniGame.active){miniKeys.delete(e.key);return}keys.delete(e.key)});window.addEventListener('blur',()=>{keys.clear();miniKeys.clear()});
 function openWakeDialog(){openDialog('Good morning, Dad','Elaina, Elsie, and Ellerle walk into the bedroom and wake you for breakfast. Today’s chores must happen in order.',[{label:'Get out of bed',run:()=>{player.awake=true;player.x=205;player.y=170;toast('Breakfast is the first chore.')}},{label:'Ask for five quiet minutes',run:()=>{temper=Math.min(100,temper+8);openDialog('Five more minutes','The girls wait while Dad rests. When you are ready, it is time to get up.',[{label:'Get out of bed',run:()=>{player.awake=true;player.x=205;player.y=170;toast('Breakfast is the first chore.')}}])}}])}
-function openDadBreak(){if(ended){toast('The day is already over—start a new day to try again.');return}if(breakTimer>0){toast(`Dad needs ${Math.ceil(breakTimer)}s before another break.`);return}const restore=(currentDialog&&$('dialogShade').classList.contains('open'))?currentDialog:null;const resume=()=>{if(restore)openDialog(restore.title,restore.text,restore.choices)};openDialog('Dad’s break','Ten quiet minutes away from the noise. Time will pass, but Dad’s patience and focus will recover.',[{label:'Take the break',run:()=>{elapsed+=8;temper=Math.min(100,temper+30);focus=Math.min(100,focus+28);stressLeft=0;breakTimer=30;toast('Dad took a real break. Patience and focus restored.');resume()}},{label:'Push through instead',run:()=>{temper=Math.max(0,temper-2);toast('Dad skips the break. Patience -2');resume()}}])}
-function goOutside(){scene='yard';player.x=110;player.y=350;player.awake=true;const c=girls.find(g=>g.dog);c.x=875;c.y=350;c.route=[];c.agenda='running along the fence';charlieOutside=true;girlsOutside=false;charlieTimer.action='patrol';charlieTimer.next=6+Math.random()*4;charlieTimer.barkLeft=0;elapsed+=5;focus=Math.min(100,focus+6);temper=Math.min(100,temper+4);girls.filter(g=>!g.dog).forEach(g=>{g.mood=Math.min(100,g.mood+10);g.history=Math.min(3,g.history+.35)});stressLeft=Math.max(0,stressLeft-3);outsidePlayBonus=Math.min(3,outsidePlayBonus+1);sandboxPlayed=false;fetchUses=0;callBoostUsed=false;toast('Fresh air! Focus +6, patience +4, girls’ moods rise. Next request gets a boost.')}
+function openDadBreak(){if(miniGame.active){toast('Finish the backyard game first.');return}if(ended){toast('The day is already over—start a new day to try again.');return}if(breakTimer>0){toast(`Dad needs ${Math.ceil(breakTimer)}s before another break.`);return}const restore=(currentDialog&&$('dialogShade').classList.contains('open'))?currentDialog:null;const resume=()=>{if(restore)openDialog(restore.title,restore.text,restore.choices)};openDialog('Dad’s break','Ten quiet minutes away from the noise. Time will pass, but Dad’s patience and focus will recover.',[{label:'Take the break',run:()=>{elapsed+=8;temper=Math.min(100,temper+30);focus=Math.min(100,focus+28);stressLeft=0;breakTimer=30;toast('Dad took a real break. Patience and focus restored.');resume()}},{label:'Push through instead',run:()=>{temper=Math.max(0,temper-2);toast('Dad skips the break. Patience -2');resume()}}])}
+function goOutside(){scene='yard';player.x=110;player.y=350;player.awake=true;const c=girls.find(g=>g.dog);c.x=875;c.y=350;c.route=[];c.agenda='running along the fence';charlieOutside=true;girlsOutside=false;charlieTimer.action='patrol';charlieTimer.next=6+Math.random()*4;charlieTimer.barkLeft=0;elapsed+=5;focus=Math.min(100,focus+6);temper=Math.min(100,temper+4);girls.filter(g=>!g.dog).forEach(g=>{g.mood=Math.min(100,g.mood+10);g.history=Math.min(3,g.history+.35)});stressLeft=Math.max(0,stressLeft-3);outsidePlayBonus=Math.min(3,outsidePlayBonus+1);sandboxPlayed=false;sandcastleQuality=0;fetchUses=0;callBoostUsed=false;toast('Fresh air! Focus +6, patience +4, girls’ moods rise. Next request gets a boost.')}
 function goInside(){scene='house';player.x=830;player.y=350;player.awake=true;const c=girls.find(g=>g.dog);if(charlieOutside){c.x=860;c.y=320;c.route=[];c.agenda='napping';charlieOutside=false}if(girlsOutside){girls.filter(g=>!g.dog).forEach(g=>{g.x=820;g.y=340;g.route=[];g.agenda='getting up from the table'});girlsOutside=false}toast('Back inside.')}
-function callGirlsOutside(){if(scene!=='yard'){toast('Go outside first.');return}if(girlsOutside){toast('The girls are already playing outside.');return}const available=girls.filter(g=>!g.dog&&!g.asleep);if(!available.length){toast('No one is available to come outside.');return}const firstCall=!callBoostUsed;available.forEach((g,i)=>{g.x=470+i*30;g.y=470;g.route=[];g.agenda='playing outside';g.bubble=firstCall?'Yay, outside!':'Back outside!';g.bubbleLeft=2.5;if(firstCall){g.mood=Math.min(100,g.mood+8);g.history=Math.min(3,g.history+.3)}});girlsOutside=true;if(firstCall){callBoostUsed=true;stressLeft=Math.max(0,stressLeft-2);outsidePlayBonus=Math.min(3,outsidePlayBonus+1);toast('The girls come outside and play! Sandbox time and fetch are available.')}else toast('The girls come back outside to play.')}
-function playInSandbox(){if(scene!=='yard'){toast('The sandbox is in the backyard.');return}if(!girlsOutside){toast('Call the girls outside first—or play fetch with Charlie.');return}if(sandboxPlayed){toast('The girls already had their sandbox time this visit.');return}sandboxPlayed=true;elapsed+=3;girls.filter(g=>!g.dog&&!g.asleep).forEach(g=>{g.mood=Math.min(100,g.mood+9);g.history=Math.min(3,g.history+.3);g.bubble='Best sandcastle ever!';g.bubbleLeft=2.5});stressLeft=Math.max(0,stressLeft-2);outsidePlayBonus=Math.min(3,outsidePlayBonus+1);focus=Math.min(100,focus+4);temper=Math.min(100,temper+2);toast('Sandbox time! The girls feel closer to Dad. Next request gets a boost.')}
+function callGirlsOutside(){if(scene!=='yard'){toast('Go outside first.');return}if(girlsOutside){toast('The girls are already playing outside.');return}const available=girls.filter(g=>!g.dog&&!g.asleep);if(!available.length){toast('No one is available to come outside.');return}const firstCall=!callBoostUsed;available.forEach((g,i)=>{g.x=470+i*30;g.y=470;g.route=[];g.agenda='playing outside';g.bubble=firstCall?'Yay, outside!':'Back outside!';g.bubbleLeft=2.5;if(firstCall){g.mood=Math.min(100,g.mood+8);g.history=Math.min(3,g.history+.3)}});girlsOutside=true;if(firstCall){callBoostUsed=true;stressLeft=Math.max(0,stressLeft-2);outsidePlayBonus=Math.min(3,outsidePlayBonus+1);toast('The girls come outside and play! Sandcastle time and fetch are available.')}else toast('The girls come back outside to play.')}
+// ---------- Backyard mini-games: sandcastle building and fetch ----------
+const miniCanvas=$('miniCanvas'),miniCtx=miniCanvas.getContext('2d');
+const miniShade=$('miniShade'),miniTitleEl=$('miniTitle'),miniBadge=$('miniBadge'),miniText=$('miniText'),miniPrimary=$('miniPrimary'),miniQuit=$('miniQuit'),miniHint=$('miniHint');
+const MINI_W=640,MINI_H=400,miniKeys=new Set();
+let miniRaf=0,miniDrag=null;
+function fitMiniCanvas(){
+ const vw=window.innerWidth||MINI_W,vh=window.innerHeight||MINI_H;
+ const cardW=Math.min(680,vw-20),innerW=Math.max(220,cardW-34);
+ const maxH=Math.max(150,vh-190);
+ const w=Math.max(240,Math.min(640,innerW,maxH/.625));
+ miniCanvas.style.width=Math.round(w)+'px';
+ miniCanvas.style.height=Math.round(w*.625)+'px';
+}
+function miniPoint(e){const r=miniCanvas.getBoundingClientRect();return{x:(e.clientX-r.left)*MINI_W/Math.max(1,r.width),y:(e.clientY-r.top)*MINI_H/Math.max(1,r.height)}}
+function openMiniGame(type){
+ if($('dialogShade').classList.contains('open'))closeDialog();
+ miniGame.active=true;miniGame.type=type;miniGame.phase=type==='sandcastle'?'drop':'play';miniGame.time=0;miniGame.last=performance.now();miniGame.closeToast='';
+ miniShade.classList.add('open');miniShade.setAttribute('aria-hidden','false');
+ miniKeys.clear();keys.clear();fitMiniCanvas();
+ if(type==='sandcastle')setupSandcastle();else setupFetchGame();
+ miniPrimary.style.display='';miniQuit.style.display='';
+ miniPrimary.focus({preventScroll:true});
+ cancelAnimationFrame(miniRaf);miniRaf=requestAnimationFrame(miniLoop);
+}
+function closeMiniGame(){
+ if(!miniGame.active)return;
+ const resultToast=miniGame.closeToast;
+ miniGame.active=false;miniGame.type='';miniGame.phase='';
+ cancelAnimationFrame(miniRaf);miniRaf=0;miniDrag=null;miniKeys.clear();keys.clear();
+ miniShade.classList.remove('open');miniShade.setAttribute('aria-hidden','true');
+ toast(resultToast||'Back to the yard.');
+}
+function handleMiniKeyDown(e){
+ if(e.key==='Escape'){e.preventDefault();closeMiniGame();return}
+ if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','a','d','w','s'].includes(e.key)){e.preventDefault();miniKeys.add(e.key);return}
+ if(e.key===' '||e.key==='Enter'){if(e.target&&e.target.tagName==='BUTTON')return;e.preventDefault();if(!e.repeat)miniPrimaryAction()}
+}
+function miniLoop(now){
+ if(!miniGame.active)return;
+ const dt=Math.min(.05,Math.max(0,(now-miniGame.last)/1000));miniGame.last=now;miniGame.time+=dt;
+ if(miniGame.type==='sandcastle')updateSandcastle(dt);else updateFetch(dt);
+ drawMiniGame();
+ if(miniGame.active)miniRaf=requestAnimationFrame(miniLoop);
+}
+function miniPrimaryAction(){
+ if(!miniGame.active)return;
+ if(miniGame.phase==='result'){closeMiniGame();return}
+ if(miniGame.type==='sandcastle'){if(miniGame.phase==='drop')dropSand();return}
+ if(fetchMini.phase==='aim')throwFetch();
+ else if(fetchMini.phase==='returning'&&!fetchMini.praiseUsed)praiseCharlie();
+ else if(fetchMini.phase==='roundEnd')fetchMini.endingTimer=0;
+}
+function startSandcastleGame(){
+ if(scene!=='yard'){toast('The sandbox is in the backyard.');return}
+ if(!girlsOutside){toast('Call the girls outside first—or play fetch with Charlie.');return}
+ if(sandboxPlayed){toast('The girls already had their sandbox time this visit.');return}
+ openMiniGame('sandcastle');
+}
+function startFetchGame(){
+ if(scene!=='yard'){toast('Charlie’s fetch toy is in the backyard.');return}
+ if(!charlieOutside){toast('Charlie is inside right now.');return}
+ if(fetchUses>=2){toast('Charlie is tuckered out—he’ll fetch again on the next backyard trip.');return}
+ openMiniGame('fetch');
+}
+// ---- Sandcastle game ----
+function setupSandcastle(){
+ Object.assign(sandMini,{tiers:[],dropCount:0,quality:15,perfect:0,good:0,miss:0,needle:.18,dir:1,speed:.62,feedback:'',feedbackColor:'#fff8e4',feedbackLeft:0,floaters:[],girlCheer:0,confetti:[]});
+ newSandTarget();
+ miniTitleEl.textContent='Sandcastle builders';miniBadge.textContent='Drop 1 / 5 · 15%';
+ miniText.textContent='The girls have buckets and shells ready. Tap when the swinging bucket is over the green patch to pack a perfect layer.';
+ miniPrimary.textContent='Drop the sand';
+ miniHint.textContent='Tap the picture, press Space, or use the button. Perfect drops build a taller castle.';
+ miniCanvas.setAttribute('aria-label','Sandcastle building mini-game. Tap when the moving bucket is in the green patch.');
+}
+function newSandTarget(){
+ const half=Math.max(.036,.062-sandMini.dropCount*.005);
+ const center=.22+Math.random()*.56;
+ sandMini.targetStart=center-half;sandMini.targetEnd=center+half;
+ const wideHalf=Math.max(.1,.17-sandMini.dropCount*.008);
+ sandMini.wideStart=Math.max(0,center-wideHalf);sandMini.wideEnd=Math.min(1,center+wideHalf);
+}
+function updateSandcastle(dt){
+ if(miniGame.phase==='drop'){
+  sandMini.needle+=sandMini.dir*sandMini.speed*dt;
+  if(sandMini.needle>=1){sandMini.needle=1;sandMini.dir=-1}
+  if(sandMini.needle<=0){sandMini.needle=0;sandMini.dir=1}
+ }
+ sandMini.feedbackLeft=Math.max(0,sandMini.feedbackLeft-dt);
+ sandMini.girlCheer=Math.max(0,sandMini.girlCheer-dt);
+ sandMini.floaters.forEach(f=>{f.y-=30*dt;f.life-=dt});sandMini.floaters=sandMini.floaters.filter(f=>f.life>0);
+ sandMini.confetti.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=45*dt;p.life-=dt});sandMini.confetti=sandMini.confetti.filter(p=>p.life>0);
+}
+function dropSand(){
+ if(!miniGame.active||miniGame.type!=='sandcastle'||miniGame.phase!=='drop')return;
+ const n=sandMini.needle,center=(sandMini.targetStart+sandMini.targetEnd)/2;
+ const perfect=Math.abs(n-center)<=(sandMini.targetEnd-sandMini.targetStart)/2;
+ const good=!perfect&&n>=sandMini.wideStart&&n<=sandMini.wideEnd;
+ let result,label,color;
+ if(perfect){sandMini.quality+=21;sandMini.perfect++;result='perfect';label='PERFECT PACK!';color='#d8f28b';sandMini.girlCheer=1.3}
+ else if(good){sandMini.quality+=11;sandMini.good++;result='good';label='Nice pack!';color='#ffe6a3'}
+ else{sandMini.quality=Math.max(0,sandMini.quality-7);sandMini.miss++;result='miss';label='Sand spill!';color='#ffb09a'}
+ sandMini.tiers.push(result);sandMini.dropCount++;
+ sandMini.feedback=label;sandMini.feedbackColor=color;sandMini.feedbackLeft=1.15;
+ sandMini.floaters.push({x:320,y:238,text:label,life:1.15,color});
+ miniBadge.textContent=`Drop ${Math.min(5,sandMini.dropCount+1)} / 5 · ${Math.max(0,Math.round(sandMini.quality))}%`;
+ if(sandMini.dropCount>=5){finishSandcastle();return}
+ newSandTarget();sandMini.speed=Math.min(1.28,sandMini.speed+.11);sandMini.dir=Math.random()<.5?-1:1;
+}
+function finishSandcastle(){
+ miniGame.phase='result';
+ const quality=Math.max(0,Math.min(100,Math.round(sandMini.quality)));
+ sandMini.quality=quality;sandboxPlayed=true;sandcastleQuality=quality;
+ const result=applySandcastleResult(quality);
+ miniTitleEl.textContent=result.title;miniBadge.textContent=`Castle strength ${quality}%`;
+ miniText.textContent=result.text;miniPrimary.textContent='Back to the yard';miniPrimary.style.display='';miniQuit.style.display='none';
+ miniHint.textContent='The finished castle stays in the sandbox for the rest of this backyard visit.';
+ miniGame.closeToast=result.toast;
+ if(quality>=60){for(let i=0;i<28;i++)sandMini.confetti.push({x:320+(Math.random()-.5)*160,y:150+Math.random()*60,vx:(Math.random()-.5)*120,vy:-40-Math.random()*80,life:1.6+Math.random()*1.4,color:['#d8f28b','#ffc86b','#ff9b7f','#9bdbd5'][i%4],r:2+Math.random()*3})}
+}
+function applySandcastleResult(quality){
+ let moodGain,historyGain,bonus,focusGain,temperGain,title,summary;
+ if(quality>=90){moodGain=14;historyGain=.5;bonus=2;focusGain=6;temperGain=3;title='A sandcastle masterpiece!';summary='The towers held, the shells sparkle, and all three girls helped. The next request gets a big cooperation boost.'}
+ else if(quality>=60){moodGain=9;historyGain=.3;bonus=1;focusGain=4;temperGain=2;title='Sandcastle complete!';summary='The castle stands. The girls are proud of their work and feel closer to Dad. The next request gets a boost.'}
+ else{moodGain=4;historyGain=.12;bonus=0;focusGain=2;temperGain=1;title='A wobbly castle!';summary='The towers slumped, but the girls loved the attempt. They will remember that Dad joined in.'}
+ girls.filter(g=>!g.dog&&!g.asleep).forEach(g=>{g.mood=Math.min(100,g.mood+moodGain);g.history=Math.min(3,g.history+historyGain);g.bubble=quality>=90?'Best sandcastle ever!':quality>=60?'Our castle is standing!':'At least we tried!';g.bubbleLeft=3.2;g.agenda='admiring the sandcastle'});
+ outsidePlayBonus=Math.min(3,outsidePlayBonus+bonus);
+ focus=Math.min(100,focus+focusGain);temper=Math.min(100,temper+temperGain);
+ stressLeft=Math.max(0,stressLeft-(quality>=60?2:0));elapsed+=4;
+ const boostText=bonus?` Cooperation +${bonus*6}%.`:'';
+ return {title,text:`Castle strength ${quality}%. ${summary} Girls’ moods +${moodGain}, goodwill +${historyGain}, focus +${focusGain}, patience +${temperGain}.${boostText}`,toast:`Sandcastle time! ${summary}${boostText}`};
+}
+// ---- Fetch game ----
+function setupFetchGame(){
+ Object.assign(fetchMini,{round:1,rounds:3,score:0,phase:'aim',aim:{x:320,y:195},charlie:{x:220,y:330,carrying:false,step:0},returnStart:{x:0,y:0},returnTotal:1,returnProgress:0,praiseUsed:false,praiseResult:'',roundScore:0,lastThrowScore:0,lastPraise:0,feedback:'',feedbackLeft:0,endingTimer:0,dust:[],quality:0});
+ newFetchTarget();
+ miniTitleEl.textContent='Fetch with Charlie';miniBadge.textContent='Round 1 / 3 · 0 pts';
+ miniText.textContent='Charlie is bouncing by the fence. Drag from Dad toward the ring and release to throw the ball.';
+ miniPrimary.textContent='Throw!';
+ miniHint.textContent='Drag on the picture or tap a landing spot. Arrow keys aim, Space throws. Praise Charlie on the way back!';
+ miniCanvas.setAttribute('aria-label','Fetch mini-game. Drag from Dad toward the target ring to throw, then praise Charlie on his return.');
+}
+function newFetchTarget(){
+ const spots=[[225,145],[420,135],[205,270],[440,255],[320,115]];
+ const last=fetchMini.target;let options=spots.filter(s=>!last||Math.hypot(s[0]-last.x,s[1]-last.y)>70);if(!options.length)options=spots;
+ const s=options[Math.floor(Math.random()*options.length)];
+ fetchMini.target={x:s[0],y:s[1],r:29};
+ fetchMini.aim={x:320,y:195};
+}
+function setFetchAim(x,y){fetchMini.aim.x=Math.max(105,Math.min(575,x));fetchMini.aim.y=Math.max(82,Math.min(305,y))}
+function throwFetch(){
+ if(!miniGame.active||miniGame.type!=='fetch'||fetchMini.phase!=='aim')return;
+ const dist=Math.hypot(fetchMini.aim.x-fetchMini.target.x,fetchMini.aim.y-fetchMini.target.y);
+ let pts,label;
+ if(dist<=28){pts=100;label='Right on the ring!'}
+ else if(dist<=55){pts=75;label='Great throw!'}
+ else if(dist<=90){pts=45;label='Charlie can get that.'}
+ else{pts=15;label='Way off in the weeds!'}
+ fetchMini.lastThrowScore=pts;fetchMini.roundScore=pts;fetchMini.lastPraise=0;fetchMini.praiseUsed=false;fetchMini.praiseResult='';
+ fetchMini.ball={x:320,y:318,tx:fetchMini.aim.x,ty:fetchMini.aim.y,t:0};
+ fetchMini.phase='flying';fetchMini.feedback=label;fetchMini.feedbackLeft=1.3;
+ miniPrimary.textContent='Charlie, fetch!';miniText.textContent='Charlie heard the bounce and is on his way.';miniHint.textContent='Watch for the praise window when he turns back.';
+ miniBadge.textContent=`Round ${fetchMini.round} / 3 · ${fetchMini.score} pts`;
+}
+function updateFetch(dt){
+ fetchMini.feedbackLeft=Math.max(0,fetchMini.feedbackLeft-dt);
+ fetchMini.dust.forEach(d=>d.life-=dt);fetchMini.dust=fetchMini.dust.filter(d=>d.life>0);
+ if(fetchMini.phase==='aim'){
+  let ax=0,ay=0;
+  if(miniKeys.has('ArrowLeft')||miniKeys.has('a'))ax--;
+  if(miniKeys.has('ArrowRight')||miniKeys.has('d'))ax++;
+  if(miniKeys.has('ArrowUp')||miniKeys.has('w'))ay--;
+  if(miniKeys.has('ArrowDown')||miniKeys.has('s'))ay++;
+  if(ax||ay){const m=Math.hypot(ax,ay);setFetchAim(fetchMini.aim.x+ax/m*240*dt,fetchMini.aim.y+ay/m*240*dt)}
+ }else if(fetchMini.phase==='flying'){
+  fetchMini.ball.t=Math.min(1,fetchMini.ball.t+dt/.52);
+  if(fetchMini.ball.t>=1){fetchMini.ball.x=fetchMini.ball.tx;fetchMini.ball.y=fetchMini.ball.ty;fetchMini.phase='chasing';fetchMini.feedback='Charlie’s got it!';fetchMini.feedbackLeft=.9;miniText.textContent='Charlie is racing for the ball.'}
+ }else if(fetchMini.phase==='chasing'){
+  const b=fetchMini.ball,c=fetchMini.charlie;
+  if(moveMiniCharlie(b.tx,b.ty,340*dt)){
+   c.x=b.tx;c.y=b.ty;c.carrying=true;fetchMini.phase='returning';
+   fetchMini.returnStart={x:c.x,y:c.y};
+   fetchMini.returnTotal=Math.max(1,Math.hypot(320-c.x,318-c.y));
+   fetchMini.returnProgress=0;fetchMini.praiseUsed=false;fetchMini.praiseResult='';
+   fetchMini.feedback='Praise Charlie!';fetchMini.feedbackLeft=1.2;
+   miniPrimary.textContent='Praise Charlie!';miniText.textContent='Charlie is racing back. Praise him when the marker is in the green zone.';miniHint.textContent='Perfect praise: middle of the green zone.';
+  }
+ }else if(fetchMini.phase==='returning'){
+  const c=fetchMini.charlie;
+  const done=moveMiniCharlie(320,318,270*dt);
+  fetchMini.returnProgress=Math.min(1,Math.hypot(c.x-fetchMini.returnStart.x,c.y-fetchMini.returnStart.y)/fetchMini.returnTotal);
+  if(done){c.x=320;c.y=318;fetchMini.returnProgress=1;finalizeFetchRound()}
+ }else if(fetchMini.phase==='roundEnd'){
+  fetchMini.endingTimer-=dt;
+  if(fetchMini.endingTimer<=0){
+   if(fetchMini.round>=fetchMini.rounds)finishFetchGame();
+   else{
+    fetchMini.round++;newFetchTarget();
+    Object.assign(fetchMini,{phase:'aim',praiseUsed:false,praiseResult:'',roundScore:0,lastThrowScore:0,lastPraise:0,feedback:'',feedbackLeft:0});
+    fetchMini.charlie={x:220,y:330,carrying:false,step:0};
+    fetchMini.ball={x:320,y:318,tx:320,ty:180,t:0};
+    miniPrimary.textContent='Throw!';miniBadge.textContent=`Round ${fetchMini.round} / 3 · ${fetchMini.score} pts`;
+    miniText.textContent='Charlie is ready again. Drag from Dad toward the new ring and release.';
+    miniHint.textContent='Arrow keys aim, Space throws. Praise Charlie on the way back!';
+   }
+  }
+ }
+}
+function moveMiniCharlie(tx,ty,step){
+ const c=fetchMini.charlie,dx=tx-c.x,dy=ty-c.y,d=Math.hypot(dx,dy);
+ c.step+=step*.11;
+ if(d<=step+2){c.x=tx;c.y=ty;return true}
+ c.x+=dx/d*step;c.y+=dy/d*step;
+ if(Math.random()<.16)fetchMini.dust.push({x:c.x+(Math.random()-.5)*10,y:c.y+9,life:.45+Math.random()*.2,r:1.5+Math.random()*2.5});
+ return false;
+}
+function praiseCharlie(){
+ if(fetchMini.phase!=='returning'||fetchMini.praiseUsed)return;
+ fetchMini.praiseUsed=true;
+ const p=fetchMini.returnProgress;
+ if(p>=.44&&p<=.60){fetchMini.lastPraise=30;fetchMini.praiseResult='Perfect praise! Charlie’s tail is a blur.'}
+ else if(p>=.28&&p<=.76){fetchMini.lastPraise=15;fetchMini.praiseResult='Good boy! Charlie runs a little prouder.'}
+ else{fetchMini.lastPraise=0;fetchMini.praiseResult=p<.28?'Too early—Charlie was still running.':'A little late—Charlie already dropped the ball at Dad’s feet.'}
+ fetchMini.feedback=fetchMini.praiseResult;fetchMini.feedbackLeft=1.4;
+ miniPrimary.textContent='Charlie is bringing it back!';miniHint.textContent=fetchMini.praiseResult;
+}
+function finalizeFetchRound(){
+ if(fetchMini.phase!=='returning')return;
+ fetchMini.roundScore=fetchMini.lastThrowScore+fetchMini.lastPraise;
+ fetchMini.score+=fetchMini.roundScore;
+ fetchMini.phase='roundEnd';fetchMini.endingTimer=1.45;fetchMini.charlie.carrying=false;
+ const praiseText=fetchMini.lastPraise>=30?'Perfect praise!':fetchMini.lastPraise>0?'Good praise!':'No praise this time.';
+ fetchMini.feedback=`Round ${fetchMini.round}: ${fetchMini.lastThrowScore} + ${fetchMini.lastPraise} = ${fetchMini.roundScore}`;fetchMini.feedbackLeft=1.45;
+ miniBadge.textContent=`Round ${fetchMini.round} / 3 · ${fetchMini.score} pts`;
+ miniPrimary.textContent=fetchMini.round>=fetchMini.rounds?'See results':'Next throw';
+ miniText.textContent=`${fetchMini.feedback}. ${praiseText}`;
+ miniHint.textContent=fetchMini.round>=fetchMini.rounds?'Charlie is ready for the final score.':'Press the button or wait for Charlie to reset.';
+}
+function finishFetchGame(){
+ if(miniGame.phase==='result')return;
+ miniGame.phase='result';
+ const pct=Math.max(0,Math.min(100,Math.round(fetchMini.score/fetchMini.maxScore*100)));
+ fetchMini.quality=pct;fetchUses++;
+ const result=applyFetchResult(pct);
+ miniTitleEl.textContent=result.title;miniBadge.textContent=`Best-friend score ${pct}%`;
+ miniText.textContent=result.text;miniPrimary.textContent='Back to the yard';miniPrimary.style.display='';miniQuit.style.display='none';
+ miniHint.textContent='Charlie’s ball stays in the yard for the rest of this backyard visit.';
+ miniGame.closeToast=result.toast;
+ fetchMini.feedback=result.feedback;fetchMini.feedbackLeft=4;
+}
+function applyFetchResult(pct){
+ let charlieGain,focusGain,temperGain,girlsMood=0,girlsHistory=0,bonus=0,title,summary,feedback;
+ if(pct>=85){charlieGain=22;focusGain=8;temperGain=4;girlsMood=6;girlsHistory=.25;bonus=2;title='Best day ever!';summary='Charlie brought every throw back and did a victory zoom around the yard. The girls cheered from the grass.';feedback='BEST DAY EVER!'}
+ else if(pct>=60){charlieGain=14;focusGain=5;temperGain=3;girlsMood=3;girlsHistory=.12;bonus=1;title='Good boy, Charlie!';summary='Charlie got the ball every time, even when the throws were goofy. Everyone had a laugh.';feedback='Good boy, Charlie!'}
+ else{charlieGain=7;focusGain=3;temperGain=1;title='A goofy game of chase.';summary='Most throws landed in the weeds, but Charlie still had a wonderful time. Dad got a little fresh air and a lot of dog hair.';feedback='A goofy game of chase!'}
+ const c=girls.find(g=>g.dog);
+ if(c){c.mood=Math.min(100,c.mood+charlieGain);c.bubble=pct>=85?'Woof! Best day!':pct>=60?'Again! Again!':'Woof!';c.bubbleLeft=3.4;c.agenda='proudly carrying his ball'}
+ if(girlsOutside&&girlsMood>0)girls.filter(g=>!g.dog&&!g.asleep).forEach(g=>{g.mood=Math.min(100,g.mood+girlsMood);g.history=Math.min(3,g.history+girlsHistory);g.bubble='Charlie is so fast!';g.bubbleLeft=2.8});
+ outsidePlayBonus=Math.min(3,outsidePlayBonus+bonus);
+ focus=Math.min(100,focus+focusGain);temper=Math.min(100,temper+temperGain);
+ stressLeft=Math.max(0,stressLeft-(pct>=60?2:0));elapsed+=4;
+ const boostText=bonus?` Cooperation +${bonus*6}%.`:'';
+ const girlsText=girlsMood>0?` Girls’ moods +${girlsMood}, goodwill +${girlsHistory}.`:'';
+ return {title,feedback,text:`Best-friend score ${pct}%. ${summary} Charlie’s mood +${charlieGain}, focus +${focusGain}, patience +${temperGain}.${girlsText}${boostText}`,toast:`Fetch time! ${summary}${boostText}`};
+}
+// ---- Mini-game drawing ----
+function miniRound(x,y,w,h,r,fill,stroke){miniCtx.beginPath();miniCtx.roundRect(x,y,w,h,r);miniCtx.fillStyle=fill;miniCtx.fill();if(stroke){miniCtx.strokeStyle=stroke;miniCtx.lineWidth=2;miniCtx.stroke()}}
+function miniTextDraw(text,x,y,size,color,align='center',weight='600'){miniCtx.fillStyle=color;miniCtx.font=`${weight} ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;miniCtx.textAlign=align;miniCtx.textBaseline='alphabetic';miniCtx.fillText(text,x,y)}
+function drawCloud(c,x,y,s){c.save();c.translate(x,y);c.scale(s,s);c.fillStyle='#ffffffcc';c.beginPath();c.ellipse(0,0,34,15,0,0,7);c.ellipse(-22,4,20,11,0,0,7);c.ellipse(24,5,22,12,0,0,7);c.fill();c.restore()}
+function drawMiniKid(c,x,y,color,excited,time){
+ c.save();c.translate(x,y);
+ c.fillStyle='#0003';c.beginPath();c.ellipse(0,16,13,5,0,0,7);c.fill();
+ c.fillStyle=color;c.beginPath();c.ellipse(0,3,10,13,0,0,7);c.fill();
+ c.fillStyle='#efc8a4';c.beginPath();c.arc(0,-11,8,0,7);c.fill();
+ c.fillStyle='#47362b';c.beginPath();c.arc(0,-14,8,Math.PI,0);c.fill();
+ c.fillStyle='#3b342b';c.beginPath();c.arc(-3,-11,1.2,0,7);c.arc(3,-11,1.2,0,7);c.fill();
+ c.strokeStyle='#8b5d48';c.lineWidth=1;c.beginPath();c.arc(0,-8,3,0,Math.PI);c.stroke();
+ const arm=excited?.6+Math.sin(time*12+x)*.16:-.15;
+ c.strokeStyle=color;c.lineWidth=4;c.lineCap='round';
+ c.beginPath();c.moveTo(-8,2);c.lineTo(-16,8-arm*10);c.moveTo(8,2);c.lineTo(16,8-arm*10);c.stroke();
+ if(excited){c.fillStyle='#ff7f96';c.beginPath();c.moveTo(-20,-26);c.bezierCurveTo(-28,-35,-18,-40,-20,-46);c.bezierCurveTo(-12,-40,-6,-33,-20,-26);c.fill()}
+ c.restore();
+}
+function drawSandMini(){
+ const c=miniCtx,t=miniGame.time;
+ const sky=c.createLinearGradient(0,0,0,160);sky.addColorStop(0,'#8fcbe8');sky.addColorStop(1,'#e8f5df');c.fillStyle=sky;c.fillRect(0,0,MINI_W,170);
+ c.save();c.globalAlpha=.25;c.fillStyle='#ffe89a';c.beginPath();c.arc(556,54,40,0,7);c.fill();c.restore();
+ c.fillStyle='#ffe89a';c.beginPath();c.arc(556,54,24,0,7);c.fill();
+ drawCloud(c,110+((t*6)%760),48,.8);drawCloud(c,430+((t*3)%520),30,.55);
+ const sea=c.createLinearGradient(0,96,0,160);sea.addColorStop(0,'#4b9db4');sea.addColorStop(1,'#7fd2cf');c.fillStyle=sea;c.fillRect(0,96,MINI_W,70);
+ c.strokeStyle='#d9f6ee88';c.lineWidth=2;
+ for(let row=0;row<3;row++){c.beginPath();for(let x=-20;x<=MINI_W+20;x+=18){const y=116+row*18+Math.sin(x*.045+t*2+row)*4;if(x===-20)c.moveTo(x,y);else c.lineTo(x,y)}c.stroke()}
+ const sand=c.createLinearGradient(0,150,0,MINI_H);sand.addColorStop(0,'#f5e3b8');sand.addColorStop(1,'#dcbc7f');c.fillStyle=sand;c.fillRect(0,156,MINI_W,MINI_H-156);
+ c.fillStyle='#e9d3a0';for(let i=0;i<16;i++){const x=40+((i*97+31)%560),y=180+((i*53)%130);c.beginPath();c.arc(x,y,1.4+(i%3)*.7,0,7);c.fill()}
+ // beach props
+ c.fillStyle='#d96c62';c.beginPath();c.arc(80,190,16,Math.PI,0);c.fill();c.fillStyle='#f2efe2';c.fillRect(79,190,2,26);c.fillStyle='#e6bb6c';c.fillRect(60,208,24,17);c.strokeStyle='#b98b4f';c.lineWidth=2;c.beginPath();c.arc(72,208,12,Math.PI,0);c.stroke();
+ c.fillStyle='#6c86b1';c.fillRect(566,206,28,11);c.beginPath();c.arc(580,206,6,0,7);c.fill();
+ drawMiniKid(c,150,306,'#aa5d72',sandMini.girlCheer>0,t);
+ drawMiniKid(c,188,318,'#5572a6',sandMini.girlCheer>0,t+.4);
+ drawMiniKid(c,486,309,'#d19439',sandMini.girlCheer>0,t+.8);
+ drawMiniCastle(c,320,306,sandMini.tiers,sandMini.quality);
+ miniRound(58,338,524,54,12,'#3a3020dd','#f6e1ae55');
+ miniTextDraw('PACK THE SAND',82,356,12,'#ffe9b8','left','800');
+ const filled=[...sandMini.tiers];for(let i=0;i<5;i++){c.beginPath();c.arc(520+i*12,353,4,0,7);c.fillStyle=i<filled.length?(filled[i]==='perfect'?'#d8f28b':filled[i]==='good'?'#ffe6a3':'#ff9b7f'):'#ffffff33';c.fill();c.strokeStyle='#3a3020';c.lineWidth=1;c.stroke()}
+ const trackX=122,trackW=428,trackY=376;
+ c.fillStyle='#8f7146';c.beginPath();c.roundRect(trackX,trackY,trackW,9,5);c.fill();
+ c.fillStyle='#e2c98f';c.fillRect(trackX+sandMini.wideStart*trackW,trackY,Math.max(4,(sandMini.wideEnd-sandMini.wideStart)*trackW),9);
+ c.fillStyle='#8ed26a';c.fillRect(trackX+sandMini.targetStart*trackW,trackY,Math.max(3,(sandMini.targetEnd-sandMini.targetStart)*trackW),9);
+ c.strokeStyle='#fff4c8';c.lineWidth=1;c.strokeRect(trackX+sandMini.targetStart*trackW+.5,trackY+.5,Math.max(2,(sandMini.targetEnd-sandMini.targetStart)*trackW-1),8);
+ const nx=trackX+sandMini.needle*trackW;
+ c.fillStyle='#f4d17b';c.strokeStyle='#76502e';c.lineWidth=2;
+ c.beginPath();c.moveTo(nx-8,trackY-6);c.lineTo(nx+8,trackY-6);c.lineTo(nx+5,trackY+7);c.lineTo(nx-5,trackY+7);c.closePath();c.fill();c.stroke();
+ c.beginPath();c.arc(nx,trackY-10,3.5,0,7);c.fillStyle='#f7e5b0';c.fill();c.stroke();
+ if(sandMini.feedbackLeft>0){const a=Math.min(1,sandMini.feedbackLeft*4);c.save();c.globalAlpha=a;miniTextDraw(sandMini.feedback,320,258,25,sandMini.feedbackColor,'center','900');c.restore()}
+ sandMini.floaters.forEach(f=>{c.save();c.globalAlpha=Math.max(0,Math.min(1,f.life*3));miniTextDraw(f.text,f.x,f.y,17,f.color||'#fff','center','800');c.restore()});
+ sandMini.confetti.forEach(p=>{c.save();c.globalAlpha=Math.max(0,p.life);c.fillStyle=p.color;c.fillRect(p.x,p.y,p.r,p.r);c.restore()});
+}
+function drawMiniCastle(c,cx,baseY,tiers,quality){
+ const colors={perfect:'#d8b46c',good:'#e2c58a',miss:'#c8a568'};
+ const strokes={perfect:'#a88145',good:'#b28d56',miss:'#9b7d4d'};
+ for(let i=0;i<tiers.length;i++){
+  const result=tiers[i],w=112-i*14,h=24,x=cx-w/2,y=baseY-(i+1)*h;
+  c.save();if(result==='miss'){c.translate(i%2?7:-7,2);c.rotate(.03*(i%2?1:-1))}
+  c.fillStyle=colors[result];c.strokeStyle=strokes[result];c.lineWidth=2;
+  c.beginPath();c.roundRect(x,y,w,h,3);c.fill();c.stroke();
+  if(result!=='miss'){for(let bx=x+5;bx<x+w-4;bx+=15){c.fillStyle=result==='perfect'?'#e6c786':'#efd8a2';c.fillRect(bx,y-4,8,5)}}
+  c.fillStyle='#8d6b3e';c.beginPath();c.arc(cx,y+h*.55,3.2,Math.PI,0);c.fill();c.fillRect(cx-1.6,y+h*.55,3.2,5);
+  if(result==='good'){c.fillStyle='#f7dfb1';c.beginPath();c.arc(cx-w*.3,y+8,2,0,7);c.arc(cx+w*.3,y+8,2,0,7);c.fill()}
+  if(result==='miss'){c.fillStyle='#b28d56';c.beginPath();c.arc(x+w-4,y+h-4,3,0,7);c.fill()}
+  c.restore();
+ }
+ if(tiers.length>=5){
+  const topY=baseY-tiers.length*24;
+  c.strokeStyle='#6b4a2a';c.lineWidth=3;c.beginPath();c.moveTo(cx,topY);c.lineTo(cx,topY-34);c.stroke();
+  c.fillStyle=quality>=60?'#d96c62':'#c7a568';
+  c.beginPath();c.moveTo(cx,topY-34);c.lineTo(cx+24+Math.sin(miniGame.time*5)*3,topY-27);c.lineTo(cx,topY-19);c.closePath();c.fill();
+ }
+ c.fillStyle='#b98b4f';c.beginPath();c.arc(cx-64,baseY-3,5,0,7);c.arc(cx+58,baseY-5,4,0,7);c.fill();
+}
+function drawFetchMini(){
+ const c=miniCtx,t=miniGame.time;
+ const grass=c.createLinearGradient(0,0,0,MINI_H);grass.addColorStop(0,'#8fc87d');grass.addColorStop(1,'#6fae64');c.fillStyle=grass;c.fillRect(0,0,MINI_W,MINI_H);
+ c.save();c.globalAlpha=.08;c.fillStyle='#f8ffe9';for(let y=0;y<MINI_H;y+=54){c.fillRect(0,y,MINI_W,20)}c.restore();
+ // Fence and garden beds
+ c.strokeStyle='#8a6a3a';c.lineWidth=5;c.beginPath();c.moveTo(0,44);c.lineTo(540,44);c.moveTo(540,44);c.lineTo(540,260);c.stroke();
+ c.fillStyle='#8a6a3a';for(let x=20;x<540;x+=42)c.fillRect(x,38,6,13);for(let y=58;y<260;y+=42)c.fillRect(537,y,6,13);
+ c.fillStyle='#5f8f4f';c.beginPath();c.arc(62,80,24,0,7);c.arc(74,96,17,0,7);c.fill();
+ c.fillStyle='#79a864';c.beginPath();c.arc(54,74,14,0,7);c.fill();
+ c.fillStyle='#5f8f4f';c.beginPath();c.arc(490,82,20,0,7);c.arc(508,96,15,0,7);c.fill();
+ c.fillStyle='#8a6a3a';c.fillRect(447,70,5,32);c.fillStyle='#5f8f4f';c.beginPath();c.arc(449,64,18,0,7);c.fill();c.fillStyle='#79a864';c.beginPath();c.arc(443,60,10,0,7);c.fill();
+ c.fillStyle='#d9c08a';for(let i=0;i<9;i++){c.beginPath();c.arc(580+((i*43)%50),70+((i*61)%300),2,0,7);c.fill()}
+ // target ring
+ const target=fetchMini.target,pulse=1+Math.sin(t*4)*.08;
+ c.save();c.translate(target.x,target.y);
+ c.globalAlpha=.2;c.fillStyle='#fff3a7';c.beginPath();c.arc(0,0,target.r*pulse+10,0,7);c.fill();c.globalAlpha=1;
+ c.strokeStyle='#fff3a7';c.lineWidth=3;c.setLineDash([7,6]);c.beginPath();c.arc(0,0,target.r*pulse,0,7);c.stroke();c.setLineDash([]);
+ c.strokeStyle='#5d7d3d';c.lineWidth=2;c.beginPath();c.arc(0,0,target.r*.45,0,7);c.stroke();
+ c.fillStyle='#d8f28b';c.beginPath();c.arc(0,0,5,0,7);c.fill();
+ c.fillStyle='#3d4d2b';c.font='800 10px system-ui';c.textAlign='center';c.fillText('THROW HERE',0,-target.r-12);
+ c.restore();
+ // aim preview
+ if(fetchMini.phase==='aim'){
+  const aim=fetchMini.aim;
+  const near=Math.hypot(aim.x-target.x,aim.y-target.y)<30;
+  const dx=aim.x-320,dy=aim.y-312;const len=Math.hypot(dx,dy);
+  c.strokeStyle=near?'#d8f28b':'#ffffffbb';c.lineWidth=2;c.setLineDash([7,7]);c.beginPath();c.moveTo(320 + dx/len*24,312 + dy/len*24);c.lineTo(aim.x,aim.y);c.stroke();c.setLineDash([]);
+  c.strokeStyle=near?'#d8f28b':'#fff3a7';c.lineWidth=3;c.beginPath();c.arc(aim.x,aim.y,13,0,7);c.stroke();
+  c.beginPath();c.moveTo(aim.x-6,aim.y);c.lineTo(aim.x+6,aim.y);c.moveTo(aim.x,aim.y-6);c.lineTo(aim.x,aim.y+6);c.stroke();
+  c.fillStyle='#f7f1df';c.font='700 11px system-ui';c.textAlign='center';c.fillText(near?'PERFECT SPOT':'aim here',aim.x,aim.y+27);
+ }
+ // ball
+ const b=fetchMini.ball;
+ if(fetchMini.phase==='flying'){
+  const p=b.t,bx=320+(b.tx-320)*p,by=312+(b.ty-312)*p,lift=Math.sin(p*Math.PI)*38;
+  c.fillStyle='#0002';c.beginPath();c.ellipse(bx+3,by+3,7,4,0,0,7);c.fill();
+  drawMiniBall(bx,by-lift);
+ }else if((fetchMini.phase==='chasing'||fetchMini.phase==='roundEnd')&&!fetchMini.charlie.carrying){drawMiniBall(b.tx,b.ty)}
+ drawMiniDad(320,312,fetchMini.phase==='aim'||fetchMini.phase==='result',t);
+ drawMiniCharlie(fetchMini.charlie.x,fetchMini.charlie.y,fetchMini.charlie.step,fetchMini.charlie.carrying,t);
+ fetchMini.dust.forEach(d=>{c.save();c.globalAlpha=Math.max(0,d.life*2);c.fillStyle='#d6c28c';c.beginPath();c.arc(d.x,d.y,d.r,0,7);c.fill();c.restore()});
+ // Top HUD
+ miniRound(14,10,170,34,10,'#17231cdd','#ffffff33');
+ miniTextDraw(`ROUND ${fetchMini.round} / 3`,30,32,14,'#f7f1df','left','800');
+ miniRound(466,10,160,34,10,'#17231cdd','#ffffff33');
+ miniTextDraw(`${fetchMini.score} PTS`,496,32,14,'#d8f28b','left','800');
+ if(fetchMini.phase==='returning'){
+  miniRound(110,346,420,48,11,'#17231cdd','#f6e1ae55');
+  miniTextDraw('PRAISE CHARLIE',128,363,12,'#ffe9b8','left','800');
+  const x0=150,x1=490,y=379;
+  c.fillStyle='#8f7146';c.beginPath();c.roundRect(x0,y,x1-x0,8,4);c.fill();
+  c.fillStyle='#e2c98f';c.fillRect(x0+(x1-x0)*.28,y,(x1-x0)*.48,8);
+  c.fillStyle='#8ed26a';c.fillRect(x0+(x1-x0)*.44,y,(x1-x0)*.16,8);
+  const mx=x0+(x1-x0)*Math.min(1,Math.max(0,fetchMini.returnProgress));
+  c.fillStyle='#fff4c8';c.strokeStyle='#6b4a2a';c.lineWidth=2;c.beginPath();c.arc(mx,y+4,7,0,7);c.fill();c.stroke();
+  if(fetchMini.praiseUsed)miniTextDraw(fetchMini.praiseResult,500,363,11,'#d8f28b','right','700');
+ }
+ if(fetchMini.feedbackLeft>0){const a=Math.min(1,fetchMini.feedbackLeft*3);c.save();c.globalAlpha=a;miniTextDraw(fetchMini.feedback,320,250,23,'#fff8e4','center','900');c.restore()}
+ if(fetchMini.phase==='roundEnd'){miniRound(180,282,280,46,12,'#17231cdd','#ffffff33');miniTextDraw(`Round ${fetchMini.round}: ${fetchMini.lastThrowScore} throw + ${fetchMini.lastPraise} praise`,320,309,13,'#d8f28b','center','800')}
+}
+function drawMiniBall(x,y){miniCtx.fillStyle='#d8e46d';miniCtx.beginPath();miniCtx.arc(x,y,7,0,7);miniCtx.fill();miniCtx.strokeStyle='#f7f7d0';miniCtx.lineWidth=1.4;miniCtx.beginPath();miniCtx.arc(x-2,y-1,4,Math.PI*.2,Math.PI*1.25);miniCtx.stroke()}
+function drawMiniDad(x,y,armsUp,t){
+ miniCtx.save();miniCtx.translate(x,y);
+ miniCtx.fillStyle='#0003';miniCtx.beginPath();miniCtx.ellipse(0,13,14,5,0,0,7);miniCtx.fill();
+ miniCtx.fillStyle='#416b78';miniCtx.beginPath();miniCtx.ellipse(0,2,12,15,0,0,7);miniCtx.fill();
+ miniCtx.strokeStyle='#416b78';miniCtx.lineWidth=4;miniCtx.lineCap='round';
+ if(armsUp){miniCtx.beginPath();miniCtx.moveTo(-9,0);miniCtx.lineTo(-20,-14);miniCtx.moveTo(9,0);miniCtx.lineTo(20,-14);miniCtx.stroke()}
+ else{miniCtx.beginPath();miniCtx.moveTo(-9,2);miniCtx.lineTo(-17,10);miniCtx.moveTo(9,2);miniCtx.lineTo(18,7+Math.sin(t*3)*2);miniCtx.stroke()}
+ miniCtx.fillStyle='#d9aa81';miniCtx.beginPath();miniCtx.arc(0,-13,8,0,7);miniCtx.fill();
+ miniCtx.fillStyle='#47362b';miniCtx.beginPath();miniCtx.arc(0,-16,8,Math.PI,0);miniCtx.fill();
+ miniCtx.fillStyle='#2f3f3a';miniCtx.beginPath();miniCtx.arc(-3,-13,1.1,0,7);miniCtx.arc(3,-13,1.1,0,7);miniCtx.fill();
+ miniCtx.restore();
+}
+function drawMiniCharlie(x,y,step,carrying,t){
+ miniCtx.save();miniCtx.translate(x,y);
+ miniCtx.fillStyle='#0003';miniCtx.beginPath();miniCtx.ellipse(0,10,20,6,0,0,7);miniCtx.fill();
+ const wag=Math.sin(t*13)*.5;
+ miniCtx.strokeStyle='#e8dcc0';miniCtx.lineWidth=5;miniCtx.lineCap='round';miniCtx.beginPath();miniCtx.moveTo(-15,-2);miniCtx.quadraticCurveTo(-27,-10-wag*6,-31,-2+wag*6);miniCtx.stroke();
+ miniCtx.fillStyle='#fff1d2';miniCtx.beginPath();miniCtx.ellipse(0,0,20,13,0,0,7);miniCtx.fill();
+ miniCtx.beginPath();miniCtx.ellipse(17,-7,10,8,0,0,7);miniCtx.fill();
+ miniCtx.fillStyle='#e6d6b8';miniCtx.beginPath();miniCtx.ellipse(25,-2,6,4,.3,0,7);miniCtx.fill();
+ miniCtx.fillStyle='#654f3e';miniCtx.beginPath();miniCtx.arc(19,-9,1.4,0,7);miniCtx.fill();
+ miniCtx.fillStyle='#3b342b';miniCtx.beginPath();miniCtx.arc(28,-3,2,0,7);miniCtx.fill();
+ miniCtx.strokeStyle='#e8dcc0';miniCtx.lineWidth=4;miniCtx.beginPath();
+ const leg=Math.sin(step)*5;
+ miniCtx.moveTo(-9,10);miniCtx.lineTo(-11,18+leg);miniCtx.moveTo(7,10);miniCtx.lineTo(9,18-leg);miniCtx.stroke();
+ if(carrying)drawMiniBall(27,-1);
+ miniCtx.restore();
+}
+function drawMiniGame(){
+ miniCtx.clearRect(0,0,MINI_W,MINI_H);
+ if(miniGame.type==='sandcastle')drawSandMini();else drawFetchMini();
+}
+// ---- Mini-game input ----
+miniCanvas.addEventListener('pointerdown',e=>{
+ if(!miniGame.active)return;e.preventDefault();
+ try{miniCanvas.setPointerCapture(e.pointerId)}catch{}
+ const p=miniPoint(e);
+ if(miniGame.type==='sandcastle'&&miniGame.phase==='drop'){dropSand();return}
+ if(miniGame.type==='fetch'){
+  if(fetchMini.phase==='aim'){miniDrag=p;setFetchAim(p.x,p.y)}
+  else if(fetchMini.phase==='returning'&&!fetchMini.praiseUsed)praiseCharlie();
+ }
+});
+miniCanvas.addEventListener('pointermove',e=>{
+ if(!miniGame.active||miniGame.type!=='fetch'||fetchMini.phase!=='aim'||!miniDrag)return;
+ e.preventDefault();const p=miniPoint(e);setFetchAim(p.x,p.y);
+});
+miniCanvas.addEventListener('pointerup',e=>{
+ if(!miniGame.active||miniGame.type!=='fetch'||fetchMini.phase!=='aim'||!miniDrag)return;
+ e.preventDefault();const p=miniPoint(e);setFetchAim(p.x,p.y);miniDrag=null;throwFetch();
+});
+miniCanvas.addEventListener('pointercancel',()=>{miniDrag=null});
+miniPrimary.addEventListener('click',e=>{e.preventDefault();miniPrimaryAction()});
+miniQuit.addEventListener('click',e=>{e.preventDefault();closeMiniGame()});
+window.addEventListener('resize',()=>{if(miniGame.active)fitMiniCanvas()});
+
+function playInSandbox(){if(scene!=='yard'){toast('The sandbox is in the backyard.');return}if(!girlsOutside){toast('Call the girls outside first—or play fetch with Charlie.');return}if(sandboxPlayed){toast('The girls already had their sandbox time this visit.');return}sandboxPlayed=true;sandcastleQuality=75;elapsed+=3;girls.filter(g=>!g.dog&&!g.asleep).forEach(g=>{g.mood=Math.min(100,g.mood+9);g.history=Math.min(3,g.history+.3);g.bubble='Best sandcastle ever!';g.bubbleLeft=2.5});stressLeft=Math.max(0,stressLeft-2);outsidePlayBonus=Math.min(3,outsidePlayBonus+1);focus=Math.min(100,focus+4);temper=Math.min(100,temper+2);toast('Sandbox time! The girls feel closer to Dad. Next request gets a boost.')}
 function playFetch(){if(scene!=='yard'){toast('Charlie’s fetch toy is in the backyard.');return}const c=girls.find(g=>g.dog);if(!charlieOutside){toast('Charlie is inside right now.');return}if(fetchUses>=2){toast('Charlie is tuckered out—he’ll fetch again on the next backyard trip.');return}fetchUses++;elapsed+=2;c.mood=Math.min(100,c.mood+12);focus=Math.min(100,focus+4);temper=Math.min(100,temper+2);stressLeft=Math.max(0,stressLeft-1);c.bubble='Woof! Again!';c.bubbleLeft=2.5;toast('Dad plays fetch with Charlie. Focus +4, patience +2.')}
 function assignYardPlay(){const spots=[[470,470],[550,420],[300,300],[400,500],[620,300],[600,450],[850,350],[500,520]];girls.filter(g=>!g.dog&&!g.asleep&&!g.route?.length).forEach((g,i)=>{const s=spots[(i+Math.floor(elapsed/5))%spots.length];setDestination(g,s[0],s[1],'activity');g.agenda='playing outside';g.bubble='';g.bubbleLeft=0})}
 function sendGirlsInside(){if(!girlsOutside){toast('The girls are already inside.');return}girls.filter(g=>!g.dog).forEach(g=>{g.x=820;g.y=340;g.route=[];g.agenda='heading inside';g.bubble='Coming, Dad!';g.bubbleLeft=2.5});girlsOutside=false;toast('The girls head inside.')}
-function handleYardInteract(){const found=nearest();const closeGirls=girls.filter(g=>!g.dog&&girlsOutside&&Math.hypot(player.x-g.x,player.y-g.y)<90);const nearbyGirl=closeGirls[0];if(nearbyGirl){const extra=girlsOutside?[{label:'Send the girls inside',run:()=>sendGirlsInside()}]:[];openDialog(`Talk to ${nearbyGirl.short}`,`${nearbyGirl.short} is playing outside.`,[{label:'“Move faster, please.”',run:()=>promptGirlMove(nearbyGirl,'calm')},{label:'Cheer her up and encourage her',run:()=>cheerGirl(nearbyGirl)},{label:'Keep waiting',run:()=>{}}].concat(extra));return}if(!found){const choices=[{label:'Play fetch with Charlie',run:()=>playFetch()}];if(girlsOutside)choices.push({label:'Play in the sandbox together',run:()=>playInSandbox()},{label:'Send the girls inside',run:()=>sendGirlsInside()});else choices.push({label:'Call the girls outside',run:()=>callGirlsOutside()});choices.push({label:'Close and keep moving',run:()=>{}});openDialog('Take a moment','Dad is in the yard. Fresh air is helping, and Charlie is ready to play.',choices);return}const p=found.p;if(p.label==='Inside'){openDialog('Go back inside?','Head back into the house?',[{label:'Yes, go inside',run:()=>goInside()},{label:'Stay outside',run:()=>{}}]);return}if(p.label==='Sandbox'){const choices=[{label:'Play fetch with Charlie',run:()=>playFetch()}];if(girlsOutside)choices.push({label:'Play in the sandbox together',run:()=>playInSandbox()},{label:'Send the girls inside',run:()=>sendGirlsInside()});else choices.push({label:'Call the girls outside',run:()=>callGirlsOutside()});choices.push({label:'Keep moving',run:()=>{}});openDialog('Sandbox',girlsOutside?'The girls are digging in the sand. Dad can join in or play with Charlie.':'The sandbox is ready. Dad can call the girls out or play with Charlie.',choices);return}if(p.label==='Tree'){toast('A nice shady tree.');return}openDialog('Take a moment','Dad is in the yard.',[{label:'Close and keep moving',run:()=>{}}])}
+function yardActivityChoices(){
+ const choices=[];
+ if(girlsOutside&&!sandboxPlayed)choices.push({label:'Build a sandcastle together',run:()=>startSandcastleGame()});
+ if(fetchUses<2)choices.push({label:'Play fetch with Charlie',run:()=>startFetchGame()});
+ if(girlsOutside)choices.push({label:'Send the girls inside',run:()=>sendGirlsInside()});
+ else choices.push({label:'Call the girls outside',run:()=>callGirlsOutside()});
+ choices.push({label:'Close and keep moving',run:()=>{}});
+ return choices;
+}
+function handleYardInteract(){
+ const found=nearest();
+ const closeGirls=girls.filter(g=>!g.dog&&girlsOutside&&Math.hypot(player.x-g.x,player.y-g.y)<90);
+ const nearbyGirl=closeGirls[0];
+ if(nearbyGirl){
+  const choices=[
+   {label:'“Move faster, please.”',run:()=>promptGirlMove(nearbyGirl,'calm')},
+   {label:'Cheer her up and encourage her',run:()=>cheerGirl(nearbyGirl)}
+  ];
+  if(girlsOutside&&!sandboxPlayed)choices.push({label:'Build a sandcastle together',run:()=>startSandcastleGame()});
+  if(fetchUses<2)choices.push({label:'Play fetch with Charlie',run:()=>startFetchGame()});
+  if(girlsOutside)choices.push({label:'Send the girls inside',run:()=>sendGirlsInside()});
+  choices.push({label:'Keep waiting',run:()=>{}});
+  openDialog(`Talk to ${nearbyGirl.short}`,`${nearbyGirl.short} is playing outside.`,choices);return;
+ }
+ if(!found){openDialog('Take a moment',sandboxPlayed?'Dad is in the yard. A finished sandcastle stands in the sand, and Charlie is ready to play.':'Dad is in the yard. Fresh air is helping, and the sandbox and Charlie are ready.',yardActivityChoices());return}
+ const p=found.p;
+ if(p.label==='Inside'){openDialog('Go back inside?','Head back into the house?',[{label:'Yes, go inside',run:()=>goInside()},{label:'Stay outside',run:()=>{}}]);return}
+ if(p.label==='Sandbox'){
+  const text=sandboxPlayed?'A finished sandcastle stands in the sand. Charlie is still ready for a game.':girlsOutside?'The girls are ready to build. Dad can join in or play with Charlie.':'The sandbox is ready. Dad can call the girls out or play with Charlie.';
+  openDialog('Sandbox',text,yardActivityChoices());return;
+ }
+ if(p.label==='Tree'){toast('A nice shady tree.');return}
+ openDialog('Take a moment','Dad is in the yard.',[{label:'Close and keep moving',run:()=>{}}]);
+}
 $('break').addEventListener('click',e=>{e.preventDefault();openDadBreak()});
 document.querySelectorAll('.pad button').forEach(b=>{const key={up:'ArrowUp',down:'ArrowDown',left:'ArrowLeft',right:'ArrowRight'}[b.dataset.dir];b.addEventListener('pointerdown',e=>{e.preventDefault();keys.add(key);b.setPointerCapture(e.pointerId)});['pointerup','pointercancel','lostpointercapture'].forEach(ev=>b.addEventListener(ev,()=>keys.delete(key)))});$('act').addEventListener('click',e=>{e.preventDefault();interact()});$('startGame').addEventListener('click',()=>{$('introShade').style.display='none';started=true;keys.clear();});
 $('restart').addEventListener('click',()=>location.reload());
-if(location.search.includes('debug'))window.__game={girls,tasks,player,charlieTimer,state:()=>({temper,focus,elapsed,opening,paused,currentCallTask,showerOrder:[...showerOrder],showerIndex,washTimer,ended,postMealTimer,breakTimer,stressLeft,coffeeCooldown,scene,charlieOutside,girlsOutside,cars:[...cars],outsidePlayBonus,sandboxPlayed,fetchUses,callBoostUsed}),setTemper:v=>temper=v,setFocus:v=>focus=v,setBreak:v=>breakTimer=v,setScene:v=>scene=v,setWash:v=>washTimer=v,setOpening:v=>opening=v,spawnCar:(x=965,y=160,vy=120)=>cars.push({x,y,vy}),goOutside,goInside,callGirlsOutside,sendGirlsInside,playInSandbox,playFetch,assignYardPlay,handleYardInteract,interact,callGirls,sendGirlToTask,completeTask,respond,promptGirlMove,cheerGirl,openDialog,closeDialog,setDestination,setMultiDestination,roomAt,routeArrived,startShowerSequence,handleShowerInteraction,openLaundryDialog,requestLaundryHelp,offerTaskParenting,showerParenting,delegateTask,redirectGirl};
+if(location.search.includes('debug'))window.__game={girls,tasks,player,charlieTimer,state:()=>({temper,focus,elapsed,opening,paused,currentCallTask,showerOrder:[...showerOrder],showerIndex,washTimer,ended,postMealTimer,breakTimer,stressLeft,coffeeCooldown,scene,charlieOutside,girlsOutside,cars:[...cars],outsidePlayBonus,sandboxPlayed,sandcastleQuality,fetchUses,callBoostUsed,miniActive:miniGame.active,fetchScore:fetchMini.score}),miniState:()=>({active:miniGame.active,type:miniGame.type,phase:miniGame.phase,title:miniTitleEl.textContent,closeToast:miniGame.closeToast,sandcastle:{drops:sandMini.dropCount,quality:Math.round(sandMini.quality),needle:sandMini.needle,targetStart:sandMini.targetStart,targetEnd:sandMini.targetEnd,wideStart:sandMini.wideStart,wideEnd:sandMini.wideEnd,tiers:[...sandMini.tiers],perfect:sandMini.perfect,good:sandMini.good,miss:sandMini.miss},fetch:{round:fetchMini.round,phase:fetchMini.phase,score:fetchMini.score,aim:{...fetchMini.aim},target:{...fetchMini.target},ball:{...fetchMini.ball},charlie:{...fetchMini.charlie},returnProgress:fetchMini.returnProgress,praiseUsed:fetchMini.praiseUsed,praiseResult:fetchMini.praiseResult,lastThrowScore:fetchMini.lastThrowScore,lastPraise:fetchMini.lastPraise,quality:fetchMini.quality}}),miniPrimary:()=>miniPrimaryAction(),miniAim:(x,y)=>{setFetchAim(x,y);return{...fetchMini.aim}},setTemper:v=>temper=v,setFocus:v=>focus=v,setBreak:v=>breakTimer=v,setScene:v=>scene=v,setWash:v=>washTimer=v,setOpening:v=>opening=v,spawnCar:(x=965,y=160,vy=120)=>cars.push({x,y,vy}),goOutside,goInside,callGirlsOutside,sendGirlsInside,playInSandbox,playFetch,startSandcastleGame,startFetchGame,closeMiniGame,assignYardPlay,handleYardInteract,interact,callGirls,sendGirlToTask,completeTask,respond,promptGirlMove,cheerGirl,openDialog,closeDialog,setDestination,setMultiDestination,roomAt,routeArrived,startShowerSequence,handleShowerInteraction,openLaundryDialog,requestLaundryHelp,offerTaskParenting,showerParenting,delegateTask,redirectGirl};
 requestAnimationFrame(step);
 })();
 </script>
