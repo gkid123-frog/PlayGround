@@ -39,14 +39,42 @@ const { launch } = require('./browser');
   });
   assert(lifecycle.couch && lifecycle.table === true && lifecycle.mode === '', 'couch arrival sets couch mode and preserves separate meal-state tracking');
 
-  const mealRoute = await page.evaluate(() => {
-    const g = __game.girls.find(x => !x.dog);
-    g.x = 684; g.y = 521; g.route = [];
-    __game.setDestination(g, 545, 615, 'meal');
-    return { route: g.route, doorwayClear: !__game.blocked(684, 540) && !__game.blocked(646, 540) };
+  const kitchen = await page.evaluate(() => {
+    const get = type => __game.props.find(p => p.type === type);
+    const table = get('table'), chairs = get('chairs'), stove = get('stove'), fridge = get('fridge'), sink = get('sink'), coffee = get('coffee');
+    const girls = __game.girls.filter(g => !g.dog);
+    const seats = [0,1,2].map(i => __game.taskSpot('lunch', girls[i]));
+    const overlaps = (a,b) => a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+    const inTable = ([x,y]) => x > table.x && x < table.x+table.w && y > table.y && y < table.y+table.h;
+    const g = girls[0];
+    g.x = 684; g.y = 530; g.route = []; g.seatedAtTable = false;
+    __game.setDestination(g, seats[1][0], seats[1][1], 'meal');
+    const route = g.route.map(p => [p[0], p[1]]);
+    let crossesTable = false;
+    for (let i = 0; i < route.length - 1; i++) {
+      const [x1,y1] = route[i], [x2,y2] = route[i+1];
+      const steps = Math.max(1, Math.ceil(Math.hypot(x2-x1, y2-y1) / 6));
+      for (let s = 0; s <= steps; s++) {
+        const t = s / steps;
+        if (inTable([x1 + (x2-x1)*t, y1 + (y2-y1)*t])) crossesTable = true;
+      }
+    }
+    return { table, chairs, stove, fridge, sink, coffee, seats, route, crossesTable,
+      tableCenterX: table.x + table.w/2,
+      appliancesLower: [stove, fridge, sink].every(p => p.y > table.y + table.h && p.y + p.h >= 660),
+      applianceRow: [stove, fridge, sink].every(p => p.y === stove.y),
+      appliancesClear: [stove, fridge, sink, chairs].every(p => !overlaps(p, table)),
+      seatsAtChairs: seats.every(([x,y]) => !inTable([x,y]) && x >= chairs.x - 8 && x <= chairs.x + chairs.w + 35 && y > chairs.y && y < chairs.y + chairs.h),
+      seatsClear: seats.every(([x,y]) => !__game.blocked(x, y, null, null, true)),
+      routeEndsAtSeat: route.length > 0 && route[route.length-1][0] === seats[1][0] && route[route.length-1][1] === seats[1][1],
+      coffeeReachable: !__game.blocked(575, 455) && Math.hypot(575 - (coffee.x+coffee.w/2), 455 - (coffee.y+coffee.h/2)) < 55 };
   });
-  assert(mealRoute.route.some(([x,y]) => x === 684 && y === 540) && mealRoute.route.some(([x,y]) => x === 646 && y === 540) && mealRoute.doorwayClear,
-    'meal routing from the living room uses the clear lower kitchen doorway, away from the couch');
+  assert(kitchen.applianceRow && kitchen.appliancesLower, 'kitchen appliances line up along the lower wall');
+  assert(Math.abs(kitchen.tableCenterX - 495) < 25 && kitchen.table.y > 450 && kitchen.table.y < 500, 'dining table sits in the middle of the kitchen');
+  assert(kitchen.appliancesClear, 'dining table stays clear of the appliance row');
+  assert(kitchen.seatsAtChairs && kitchen.seatsClear, 'meal seats sit on the chairs and stay walkable');
+  assert(kitchen.routeEndsAtSeat && !kitchen.crossesTable, 'meal routing reaches a seat without crossing the table');
+  assert(kitchen.coffeeReachable, 'coffee maker stays reachable near the kitchen entrance');
 
   const bathroom = await page.evaluate(() => {
     const get = type => __game.props.find(p => p.type === type);
