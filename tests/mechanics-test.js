@@ -1,6 +1,6 @@
-let chromium; try { chromium = require('playwright').chromium; } catch (e) { chromium = require('/home/runner/.local/share/omgithub-playwright/node_modules/playwright-core').chromium; }
+const { launch } = require('./browser');
 (async () => {
-  const browser = await chromium.launch({ headless: true, executablePath: '/home/runner/.cache/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell', args: ['--no-sandbox'] });
+  const browser = await launch();
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   const errs = [];
   page.on('pageerror', e => errs.push(String(e)));

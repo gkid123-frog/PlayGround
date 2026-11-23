@@ -16,3 +16,23 @@
 - 👤 [Explore the creator's projects](https://go.ondev.store/gkid123-frog).
 - 🌍 [Create with OMGithub](https://go.ondev.store/).
 <!-- omgithub:readme:end -->
+
+## Morning Mayhem — Dad Duty
+
+A single-file browser RPG about getting three kids through a busy morning. Open `index.html` (or run `npm run serve`) and press **Start game**.
+
+- **Move:** WASD / arrow keys / on-screen pad
+- **Interact:** E or the on-screen action button
+- **Dad break:** B or the sidebar button (restores patience/focus; has a cooldown)
+- **Coffee:** interact with the kitchen coffee maker when focus dips
+
+Complete breakfast, showers, laundry, lunch, dishes, afternoon activities, and dinner in order, then tuck in all three girls and get Dad to bed.
+
+## Tests
+
+```sh
+npm install
+npm test
+```
+
+The suite starts a local static server and runs the full-day browser playtest, the mechanics checks, the Charlie nap/obstacle checks, and the opening-break regression test. See `tests/` for the individual scripts.
