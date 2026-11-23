@@ -201,7 +201,7 @@ function roomDraw(){
  ctx.fillStyle='#18251e';ctx.fillRect(0,0,W,H);
  // outdoor garden visible through the exterior doorway
  ctx.fillStyle='#73936b';ctx.fillRect(950,300,50,370);ctx.fillStyle='#9ab67a';ctx.fillRect(962,335,15,12);ctx.fillRect(973,590,14,14);
- rooms.forEach((r,i)=>{ctx.fillStyle=r.color;ctx.fillRect(r.x,r.y,r.w,r.h);ctx.fillStyle='#4b4539';ctx.fillRect(r.x,r.y,r.w,4);ctx.fillRect(r.x,r.y+r.h-4,r.w,4);ctx.fillRect(r.x,r.y,4,r.h);ctx.fillRect(r.x+r.w-4,r.y,4,r.h);ctx.fillStyle='#514a3e';ctx.font='bold 14px system-ui';ctx.textAlign='left';ctx.fillText(r.name,r.x+12,i<2?r.y+r.h-14:r.y+23)});
+ rooms.forEach((r,i)=>{ctx.fillStyle=r.color;ctx.fillRect(r.x,r.y,r.w,r.h);ctx.fillStyle='#4b4539';ctx.fillRect(r.x,r.y,r.w,4);ctx.fillRect(r.x,r.y+r.h-4,r.w,4);ctx.fillRect(r.x,r.y,4,r.h);ctx.fillRect(r.x+r.w-4,r.y,4,r.h)});
  // Cut visible openings through bedroom skirting as well as the solid collision walls.
  ctx.fillStyle=rooms[0].color;ctx.fillRect(130,280,56,10);ctx.fillStyle=rooms[1].color;ctx.fillRect(449,280,56,10);
  // Floorboards / tiles add legible room texture.
@@ -234,7 +234,7 @@ function drawProp(p){let{x,y,w,h,type,label,task,distraction}=p;ctx.save();
  else if(type==='door'){rounded(x,y,w,h,6,'#7f5d3c','#dbc397');ctx.beginPath();ctx.arc(x+w-12,y+h/2,2,0,7);ctx.fillStyle='#f6d884';ctx.fill()}
   else if(type==='tree'){ctx.fillStyle='#6b4a2a';ctx.fillRect(x+w/2-4,y+h-12,8,12);ctx.fillStyle='#5f8f4f';ctx.beginPath();ctx.arc(x+w/2,y+h/2-4,Math.max(w,h)/2,0,7);ctx.fill();ctx.fillStyle='#79a864';ctx.beginPath();ctx.arc(x+w/2-6,y+h/2,Math.max(w,h)/3,0,7);ctx.fill()}
   else if(type==='sandbox'){ctx.fillStyle='#e7d3a3';ctx.fillRect(x,y,w,h);ctx.strokeStyle='#b99a6a';ctx.lineWidth=3;ctx.strokeRect(x,y,w,h);ctx.fillStyle='#d9c08a';ctx.fillRect(x+10,y+10,w-20,h-20)}
- ctx.fillStyle='#3d3b32';ctx.font='12px system-ui';ctx.textAlign='center';ctx.fillText(label,x+w/2,y+h+16);ctx.restore();
+ ctx.restore();
  if(task&&((task==='laundry'&&washTimer>0)||tasks[task])){ctx.fillStyle='#427447';ctx.beginPath();ctx.arc(x+w-3,y+3,10,0,7);ctx.fill();ctx.fillStyle='white';ctx.font='bold 12px system-ui';ctx.fillText('✓',x+w-3,y+7)}
 }
 function moodSymbol(mood){return mood>=80?'😄':mood>=60?'🙂':mood>=40?'😐':mood>=20?'😟':'😢'}
@@ -276,14 +276,12 @@ function drawYard(){ctx.fillStyle='#87b6d9';ctx.fillRect(0,0,W,120);ctx.fillStyl
  if(fetchUses>0){ctx.fillStyle='#d8e46d';ctx.beginPath();ctx.arc(820,560,5,0,7);ctx.fill();ctx.strokeStyle='#f7f7d0';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(818,559,3,Math.PI*.2,Math.PI*1.2);ctx.stroke()}
  // cars on the street
  cars.forEach(c=>{ctx.fillStyle='#d94b4b';ctx.fillRect(c.x-12,c.y-8,24,16);ctx.fillStyle='#f5e9c8';ctx.fillRect(c.x-8,c.y-4,16,8);ctx.fillStyle='#3d3b32';ctx.fillRect(c.x-10,c.y+6,6,4);ctx.fillRect(c.x+4,c.y+6,6,4)});
- // label
- ctx.fillStyle='#3d3b32';ctx.font='12px system-ui';ctx.textAlign='center';ctx.fillText('Sandbox',505,575);
  yardProps.forEach(drawProp);
 }
 function draw(){if(scene==='yard'){drawYard()}else{roomDraw();props.forEach(drawProp)};const visibleGirls=scene==='yard'?(girlsOutside?girls.filter(g=>!g.dog):[]):girls.filter(g=>!g.dog);visibleGirls.forEach(g=>drawPerson(g.x,g.y,g.color,g.short,g.dog,false,g.bubble||'',g.bubbleLeft||0,g.mood,g.seatedOnCouch));visibleGirls.filter(g=>g.heartLeft>0).forEach(g=>{ctx.save();ctx.font='20px system-ui, "Apple Color Emoji", "Segoe UI Emoji"';ctx.textAlign='center';ctx.fillText('❤️',g.x,g.y-55);ctx.restore()});const charlie=girls.find(g=>g.dog);if((scene==='yard'&&charlieOutside)||(scene==='house'&&!charlieOutside))drawPerson(charlie.x,charlie.y,charlie.color,charlie.short,true,false,charlie.bubble||'',charlie.bubbleLeft||0,charlie.mood);drawPerson(player.x,player.y,'#416b78','Dad',false,true,dadBubble,dadBubbleLeft,temper);
  // Highlight nearby station and emphasize every usable door opening.
  const near=nearest();if(near){const p=near.p;ctx.strokeStyle='#fff3a7';ctx.lineWidth=3;ctx.setLineDash([6,4]);ctx.strokeRect(p.x-4,p.y-4,p.w+8,p.h+8);ctx.setLineDash([])}
- if(scene==='house'){ctx.fillStyle='#eee2c3';ctx.font='11px system-ui';ctx.textAlign='center';ctx.fillText('OPEN DOOR',158,294);ctx.fillText('OPEN DOOR',477,294);ctx.fillText('OPEN DOOR',158,394);ctx.fillText('OPEN DOOR',477,394);ctx.fillText('OPEN DOOR',665,355);ctx.fillText('OPEN DOOR',665,496);ctx.fillText('EXIT',976,354)}else{ctx.fillStyle='#eee2c3';ctx.font='11px system-ui';ctx.textAlign='center';ctx.fillText('GATE',898,332);ctx.fillText('INSIDE',72,352)}
+
  if(ended){ctx.fillStyle='#08110ddd';ctx.fillRect(0,0,W,H);ctx.textAlign='center';ctx.fillStyle=ended==='win'?'#d8f28b':'#ff9b7f';ctx.font='900 48px system-ui';ctx.fillText(ended==='win'?'EVERYONE IS TUCKED IN!':'MORNING MAYHEM!',W/2,H/2-18);ctx.fillStyle='white';ctx.font='20px system-ui';ctx.fillText(ended==='win'?'You made it through the day. Dad can finally rest.':'Dad ran out of patience. Take a breath and try again.',W/2,H/2+24)}
 }
 function activeProps(){return scene==='yard'?yardProps:props}
