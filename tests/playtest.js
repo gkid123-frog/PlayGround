@@ -75,7 +75,12 @@ function log(...args) { const line = args.join(' '); logs.push(line); console.lo
     });
     await page.waitForTimeout(120);
   }
-  await page.waitForFunction(() => __game.girls.filter(g => !g.dog).every(g => g.seatedAtTable), { timeout: 25000 });
+  try {
+    await page.waitForFunction(() => __game.girls.filter(g => !g.dog).every(g => g.seatedAtTable), { timeout: 25000 });
+  } catch (e) {
+    const snapshot = await girls();
+    throw new Error('Breakfast seating timeout: ' + JSON.stringify(snapshot));
+  }
   assert(true, 'all three girls reach the breakfast table');
   await interactAt(495, 560);
   d = await dialog();
@@ -97,11 +102,11 @@ function log(...args) { const line = args.join(' '); logs.push(line); console.lo
   };
   await interactAt(90, 520);
   await callShowerGirl('Elaina');
-  await page.waitForFunction(() => __game.state().showerIndex >= 1, { timeout: 25000 });
+  try { await page.waitForFunction(() => __game.state().showerIndex >= 1, { timeout: 25000 }); } catch (e) { throw new Error('Shower 1 timeout: ' + JSON.stringify(await girls())); }
   assert(true, 'Elaina finishes her shower and the sequence advances');
   await interactAt(90, 520);
   await callShowerGirl('Elsie');
-  await page.waitForFunction(() => __game.state().showerIndex >= 2, { timeout: 25000 });
+  try { await page.waitForFunction(() => __game.state().showerIndex >= 2, { timeout: 25000 }); } catch (e) { throw new Error('Shower 2 timeout: ' + JSON.stringify(await girls())); }
   assert(true, 'Elsie finishes her shower and the sequence advances');
   await interactAt(90, 520);
   await callShowerGirl('Ellerle');
@@ -172,7 +177,7 @@ function log(...args) { const line = args.join(' '); logs.push(line); console.lo
     await page.waitForTimeout(100);
     const info = await page.evaluate(() => {
       const c = __game.girls.find(g => g.dog);
-      return { room: __game.roomAt(c.x, c.y), rooms: __game.charlieTimer.zoomieRooms.size, bubble: c.bubble, action: __game.charlieTimer.action };
+      return { room: __game.roomAt(c.x, c.y), rooms: __game.charlieTimer.zoomieRooms.size, bubble: c.bubble, action: __game.charlieTimer.action, x: c.x, y: c.y, routeLength: c.route ? c.route.length : 0, next: c.route && c.route[0] ? c.route[0] : null };
     });
     roomsSeen.add(info.room);
     if (info.bubble === 'Woof!') barkSeen = true;

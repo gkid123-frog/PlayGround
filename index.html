@@ -110,10 +110,10 @@ const props=[
  {x:385,y:190,w:100,h:54,type:'bed',label:'Ellerle bed',task:'bedEllerle'},
  {x:55,y:465,w:70,h:54,type:'tub',label:'Shower',task:'showers'},
  {x:158,y:465,w:65,h:54,type:'washer',label:'Washer',task:'laundry'},
- {x:238,y:465,w:65,h:54,type:'dryer',label:'Dryer',task:'laundry'},
+ {x:238,y:465,w:55,h:54,type:'dryer',label:'Dryer',task:'laundry'},
  {x:355,y:465,w:90,h:58,type:'stove',label:'',task:'meal'},
  {x:455,y:465,w:85,h:58,type:'fridge',label:'',task:'meal'},
- {x:550,y:465,w:100,h:55,type:'sink',label:'',task:'dishes'},
+ {x:550,y:465,w:80,h:55,type:'sink',label:'',task:'dishes'},
  {x:390,y:535,w:210,h:62,type:'table',label:'',task:'meal'},
  {x:420,y:600,w:150,h:42,type:'chairs',label:'',task:'meal'},
  {x:735,y:390,w:150,h:88,type:'tv',label:'TV',task:'afternoon'},
@@ -363,7 +363,7 @@ function offerBedParenting(g,task){openDialog(`${g.short} isn’t ready for bed`
  ])}
 // Wall collision and room-to-room navigation. NPCs follow explicit doorway waypoints,
 // then use collision-aware movement inside each room instead of walking through walls.
-function blockedChild(x,y,g){const old={x:g.x,y:g.y};g.x=x;g.y=y;const bad=blocked(x,y,g);g.x=old.x;g.y=old.y;return bad}
+function blockedChild(x,y,g){const old={x:g.x,y:g.y};const escapeProps=new Map();const radius=player.r;for(const p of props){if(!['bed','tub','washer','dryer','stove','fridge','sink','table','chairs','tv','toy','book','couch'].includes(p.type))continue;if(old.x+radius>p.x&&old.x-radius<p.x+p.w&&old.y+radius>p.y&&old.y-radius<p.y+p.h)escapeProps.set(p,Math.min(old.x+radius-p.x,p.x+p.w-(old.x-radius),old.y+radius-p.y,p.y+p.h-(old.y-radius)))}g.x=x;g.y=y;const bad=blocked(x,y,g,escapeProps,['breakfast','meal'].includes(g.routeMode),g.routeMode==='shower');g.x=old.x;g.y=old.y;return bad}
 const roomLinks={
  dad:[['girls',[313,166],[351,166]],['hall',[158,278],[158,316]]],
  girls:[['dad',[351,166],[313,166]],['hall',[477,278],[477,316]]],
@@ -375,8 +375,8 @@ const roomLinks={
 function roomAt(x,y){if(x>665)return'living';if(y<297)return x<332?'dad':'girls';if(y<397)return'hall';return x<332?'bath':'kitchen'}
  function charlieIsNapping(){const c=girls.find(g=>g.dog);return !!c && charlieTimer.action==='nap' && (!c.route||!c.route.length)}
 function routeBetween(fromX,fromY,x,y){const from=roomAt(fromX,fromY),to=roomAt(x,y),queue=[[from,[]]],seen=new Set([from]);let path=null;while(queue.length){const [room,links]=queue.shift();if(room===to){path=links;break}for(const link of roomLinks[room]||[]){if(!seen.has(link[0])){seen.add(link[0]);queue.push([link[0],[...links,link]])}}}const route=[];if(path)for(const link of path)route.push(link[1],link[2]);route.push([x,y]);return route}
- function setDestination(g,x,y,mode=''){g.seatedOnCouch=false;g.route=scene==='yard'?[[x,y]]:routeBetween(g.x,g.y,x,y);g.tx=x;g.ty=y;g.routeMode=mode}
- function setMultiDestination(g,points,mode=''){g.seatedOnCouch=false;if(scene==='yard'){g.route=points.map(p=>[p[0],p[1]]);const last=points[points.length-1];g.tx=last[0];g.ty=last[1];g.routeMode=mode;return}let x=g.x,y=g.y;g.route=[];for(const [nextX,nextY] of points){g.route.push(...routeBetween(x,y,nextX,nextY));x=nextX;y=nextY}g.tx=x;g.ty=y;g.routeMode=mode}
+ function setDestination(g,x,y,mode=''){g.seatedOnCouch=false;if(scene==='yard')g.route=[[x,y]];else if(mode==='breakfast'||mode==='meal'){g.route=[...routeBetween(g.x,g.y,645,430),[645,615],[x,y]]}else if(mode==='shower'&&roomAt(g.x,g.y)==='kitchen'){g.route=[[645,615],[645,430],[477,430],[477,378],[150,378],[150,418],[140,430],[140,548],[x,y]]}else g.route=routeBetween(g.x,g.y,x,y);g.tx=x;g.ty=y;g.routeMode=mode}
+ function setMultiDestination(g,points,mode=''){g.seatedOnCouch=false;if(scene==='yard'){g.route=points.map(p=>[p[0],p[1]]);const last=points[points.length-1];g.tx=last[0];g.ty=last[1];g.routeMode=mode;return}let x=g.x,y=g.y;g.route=[];if(mode==='charlie-zoomies'&&roomAt(x,y)==='living'){g.route.push([755,350],[684,350],[646,350]);x=646;y=350}for(const [nextX,nextY] of points){g.route.push(...routeBetween(x,y,nextX,nextY));x=nextX;y=nextY}g.tx=x;g.ty=y;g.routeMode=mode}
 function moveActor(g,dt,speedScale=1){if(!g.route||!g.route.length)return false;const [tx,ty]=g.route[0],dx=tx-g.x,dy=ty-g.y,d=Math.hypot(dx,dy);if(d<=2){g.x=tx;g.y=ty;g.route.shift();return !g.route.length}const oldX=g.x,oldY=g.y;const moodScale=g.dog?1:Math.max(.42,Math.min(1.2,.42+g.mood*.0078));const encouragement=g.encouragedLeft>0?1.65:1;const step=Math.min(d,g.speed*speedScale*moodScale*encouragement*dt),nx=g.x+dx/d*step,ny=g.y+dy/d*step;if(!blockedChild(nx,ny,g)){g.x=nx;g.y=ny}else{const sx=g.x+dx/d*step,sy=g.y,tx2=g.x,ty2=g.y+dy/d*step;if(!blockedChild(sx,sy,g)){g.x=sx;g.y=sy}else if(!blockedChild(tx2,ty2,g)){g.x=tx2;g.y=ty2}}if(!g.dog && charlieIsNapping()){const c=girls.find(x=>x.dog);if(c && Math.hypot(g.x-c.x,g.y-c.y)<46 && (g.tripCooldown||0)<=0 && Math.hypot(g.x-oldX,g.y-oldY)<.05){g.tripCooldown=6;g.bubble=g.age<=6?'Oof, Charlie! Move!':g.age<=10?'Charlie, you’re in the way!':'Charlie, please move.';g.bubbleLeft=2.5;g.mood=Math.max(0,g.mood-2);const spots=[[280,350],[560,520],[830,550],[210,220],[620,350],[440,350]];const s=spots[Math.floor(Math.random()*spots.length)];c.agenda='getting up';c.bubble='Huh? Okay!';c.bubbleLeft=2;charlieTimer.action='nap';charlieTimer.next=6+Math.random()*4;setDestination(c,s[0],s[1],'charlie')}}
 if(Math.hypot(g.x-oldX,g.y-oldY)<.05){g.stuckTime=(g.stuckTime||0)+dt}else{g.stuckTime=0;g.stuckAtX=g.x;g.stuckAtY=g.y}if((g.stuckTime||0)>=1.5){unstickActor(g)}return false}
  function unstickActor(g){g.stuckTime=0;if(!g.route||!g.route.length)return;const tx=g.tx,ty=g.ty;const mode=g.routeMode;const blockers=[[g.x+24,g.y],[g.x-24,g.y],[g.x,g.y+24],[g.x,g.y-24],[g.x+24,g.y+24],[g.x-24,g.y-24]];setDestination(g,tx,ty,mode);for(let i=0;i<blockers.length;i++){const [bx,by]=blockers[i];if(!blocked(bx,by)){g.route.unshift([bx,by]);break}}g.bubble='';g.bubbleLeft=0;g.agenda=scene==='yard'?'finding a clear path in the yard':g.routeMode==='shower'?'finding a path to the shower':'finding a way around the doorway'}
@@ -384,13 +384,14 @@ if(Math.hypot(g.x-oldX,g.y-oldY)<.05){g.stuckTime=(g.stuckTime||0)+dt}else{g.stu
 function clearCall(task){if(currentCallTask!==task)return;currentCallTask='';girls.forEach(g=>{g.callStatus='';g.callTask=''})}
  function completeTask(task){if(task.startsWith('bed')){const n=task.slice(3);const g=girls.find(g=>g.short.toLowerCase()===n.toLowerCase());const bed=props.find(p=>p.task===task);if(g&&bed){g.seatedAtTable=false;setDestination(g,bed.x+bed.w/2,bed.y+bed.h/2,task);g.agenda='heading to bed';g.bubble='Goodnight';g.bubbleLeft=2.5}return}tasks[task]=true;clearCall(task);if(task==='breakfast'||task==='lunch'||task==='dinner'){postMealTimer=2.5;if(task==='breakfast')girls.forEach(g=>{g.seatedAtTable=false})}if(task==='showers')girls.filter(g=>!g.dog).forEach(g=>g.agenda='fresh from a shower');focus=Math.min(100,focus+6);temper=Math.min(100,temper+1);toast(`${names[task]} — completed!`);updateUI()}
  function blockedYard(x,y,exclude=null){const r=player.r;if(x<86||x>902||y<66||y>634)return true;const segs=[[80,60,900,60],[80,640,900,640],[80,60,80,320],[80,380,80,640],[900,60,900,290],[900,370,900,640]];for(const [x1,y1,x2,y2]of segs){const dx=x2-x1,dy=y2-y1,l=dx*dx+dy*dy,t=Math.max(0,Math.min(1,((x-x1)*dx+(y-y1)*dy)/l)),px=x1+t*dx,py=y1+t*dy;if(Math.hypot(x-px,y-py)<r+4)return true}for(const t of yardTrees){if(Math.hypot(x-t.x,y-t.y)<t.r+r+2)return true}if(exclude!==girls.find(g=>g.dog)&&charlieIsNapping()){const c=girls.find(g=>g.dog);if(Math.hypot(x-c.x,y-c.y)<34)return true}return false}
-function blocked(x,y,exclude=null){if(scene==='yard')return blockedYard(x,y,exclude);const r=player.r;const segs=[
+function blocked(x,y,exclude=null,escapeProps=null,allowChairs=false,allowShowerChairs=false){if(scene==='yard')return blockedYard(x,y,exclude);const r=player.r;const segs=[
  [20,20,980,20],[20,20,20,680],[20,680,980,680],[980,20,980,298],[980,380,980,680],
  ...walls
  ];for(const [x1,y1,x2,y2]of segs){const dx=x2-x1,dy=y2-y1,l=dx*dx+dy*dy,t=Math.max(0,Math.min(1,((x-x1)*dx+(y-y1)*dy)/l)),px=x1+t*dx,py=y1+t*dy;if(Math.hypot(x-px,y-py)<r+4)return true}
  for(const p of props){
   if(!['bed','tub','washer','dryer','stove','fridge','sink','table','chairs','tv','toy','book','couch'].includes(p.type))continue;
-  if(x+r>p.x&&x-r<p.x+p.w&&y+r>p.y&&y-r<p.y+p.h)return true;
+  if(allowChairs&&['chairs','washer','dryer','sink','stove','fridge','tub'].includes(p.type)||allowShowerChairs&&p.type==='chairs')continue;
+  if(x+r>p.x&&x-r<p.x+p.w&&y+r>p.y&&y-r<p.y+p.h){const previous=escapeProps&&escapeProps.get(p);const depth=Math.min(x+r-p.x,p.x+p.w-(x-r),y+r-p.y,p.y+p.h-(y-r));if(previous===undefined||depth>=previous-0.01)return true}
  }
  if(exclude!==girls.find(g=>g.dog)&&charlieIsNapping()){const c=girls.find(g=>g.dog);if(Math.hypot(x-c.x,y-c.y)<34)return true}return false}
 function step(now){const dt=Math.min(.04,(now-last)/1000);last=now;try{if(started&&!ended&&!paused&&!miniGame.active){elapsed+=dt;updateMealUrgency();if(washTimer>0){washTimer-=dt;if(washTimer<=0){washTimer=0;tasks.laundry=true;clearCall('laundry');toast('Laundry is clean and dry!')}}
