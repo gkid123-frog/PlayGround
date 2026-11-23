@@ -37,4 +37,4 @@ npm install
 npm test
 ```
 
-The suite starts a local static server and runs the full-day browser playtest, the mechanics checks, the Charlie nap/obstacle checks, the opening-break regression test, and the backyard purpose checks. See `tests/` for the individual scripts.
+The suite starts a local static server and runs the full-day browser playtest, the mechanics checks, the Charlie nap/obstacle checks, the opening-break regression test, the backyard purpose checks, and the mobile touch-layout checks. See `tests/` for the individual scripts.
