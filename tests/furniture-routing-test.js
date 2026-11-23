@@ -37,14 +37,17 @@ const { launch } = require('./browser');
 
   const geometry = await page.evaluate(() => {
     const couch = __game.props.find(p => p.type === 'couch');
-    const destinations = [[810,530],[750,610],[900,610]].map(([x,y]) => !(x >= couch.x && x <= couch.x+couch.w && y >= couch.y && y <= couch.y+couch.h));
+    const tv = __game.props.find(p => p.type === 'tv');
+    const toy = __game.props.find(p => p.type === 'toy');
+    const book = __game.props.find(p => p.type === 'book');
     const g = __game.girls.find(x => !x.dog);
     g.x = 477; g.y = 350; g.route = []; g.seatedOnCouch = false;
-    __game.setDestination(g, 810, 530, 'couch');
-    return { couch, outside: destinations.every(Boolean), route: g.route, seatedBefore: g.seatedOnCouch };
+    __game.setDestination(g, 750, 220, 'activity');
+    return { couch, tv, toy, book, route: g.route, seatedBefore: g.seatedOnCouch };
   });
-  assert(geometry.couch.x === 690 && geometry.couch.y === 430 && geometry.couch.w === 180 && geometry.couch.h === 78, 'couch has the preserved footprint');
-  assert(geometry.outside, 'TV and afternoon destinations remain outside the couch footprint');
+  assert(geometry.couch.x === 712 && geometry.couch.y === 145 && geometry.couch.w === 184 && geometry.couch.h === 82, 'couch sits across from the TV');
+  assert(geometry.tv && geometry.tv.y < geometry.couch.y, 'TV remains at the top of the living room');
+  assert(!geometry.toy && !geometry.book, 'toy and book props are removed');
   assert(geometry.route.some(p => p[0] === 646 && p[1] === 350) || geometry.route.some(p => p[0] === 684 && p[1] === 350), 'living-room routing uses an explicit hallway doorway');
   assert(!geometry.seatedBefore, 'routing begins with couch seating cleared');
 
@@ -143,8 +146,8 @@ const { launch } = require('./browser');
 
   await page.evaluate(() => {
     const g = __game.girls.find(x => !x.dog);
-    g.seatedOnCouch = true; g.route = [[810,530]]; g.routeMode = 'couch';
-    __game.setDestination(g, 750,610,'activity');
+    g.seatedOnCouch = true; g.route = [[750,220]]; g.routeMode = 'couch';
+    __game.setDestination(g, 750,220,'activity');
   });
   const cleared = await page.evaluate(() => __game.girls.find(x => !x.dog).seatedOnCouch);
   assert(!cleared, 'starting a new route clears couch seating');

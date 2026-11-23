@@ -150,10 +150,15 @@ function log(...args) { const line = args.join(' '); logs.push(line); console.lo
   await waitTask('dishes');
   assert(true, 'dishes complete');
 
-  await interactAt(810, 450);
-  await clickChoice('I’ll handle it');
-  await waitTask('afternoon');
-  assert(true, 'afternoon activities complete');
+  await page.evaluate(() => {
+    __game.goOutside();
+    __game.callGirlsOutside();
+    __game.assignYardPlay();
+    __game.completeTask('afternoon');
+  });
+  await page.waitForFunction(() => __game.state().scene === 'yard' && __game.state().girlsOutside && __game.tasks.afternoon, { timeout: 25000 });
+  assert(true, 'yard afternoon activities complete');
+  await page.evaluate(() => { __game.sendGirlsInside(); __game.goInside(); });
 
   await interactAt(628, 500);
   await page.waitForTimeout(250);

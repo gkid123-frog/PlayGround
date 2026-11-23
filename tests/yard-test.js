@@ -15,7 +15,7 @@ const { launch } = require('./browser');
   const click = async (needle) => { const ok = await page.evaluate(n => { const b = [...document.querySelectorAll('#dialogChoices button')].find(b => b.textContent.includes(n)); if (!b) return false; b.click(); return true; }, needle); if (!ok) throw new Error('missing choice ' + needle + ' ' + JSON.stringify(await dialog())); await page.waitForTimeout(150); };
 
   // Walk Dad to the outside door and interact.
-  await page.evaluate(() => { __game.player.x = 870; __game.player.y = 350; __game.player.awake = true; });
+  await page.evaluate(() => { __game.player.x = 950; __game.player.y = 350; __game.player.awake = true; });
   await page.waitForTimeout(100);
   await page.evaluate(() => __game.interact());
   let d = await dialog();
