@@ -58,7 +58,7 @@ function log(...args) { const line = args.join(' '); logs.push(line); console.lo
   await page.evaluate(() => __game.girls.filter(g => !g.dog).forEach(g => { g.speed = 190; g.mood = 85; g.history = 2; }));
 
   log('breakfast: call, refusals, redirect, seating, completion');
-  await interactAt(620, 545);
+  await interactAt(628, 500);
   await page.waitForTimeout(250);
   let gs = await girls();
   log('  breakfast statuses: ' + gs.map(g => `${g.short}:${g.status}`).join(', '));
@@ -82,7 +82,7 @@ function log(...args) { const line = args.join(' '); logs.push(line); console.lo
     throw new Error('Breakfast seating timeout: ' + JSON.stringify(snapshot));
   }
   assert(true, 'all three girls reach the breakfast table');
-  await interactAt(620, 545);
+  await interactAt(628, 500);
   d = await dialog();
   assert(d.open && /Handle Make breakfast/i.test(d.title), 'breakfast completion dialog appears after everyone is seated');
   await clickChoice('I’ll handle it');
@@ -134,16 +134,16 @@ function log(...args) { const line = args.join(' '); logs.push(line); console.lo
   assert(true, 'laundry cycle finishes without freezing');
 
   log('lunch, dishes, afternoon, dinner');
-  await interactAt(620, 545);
+  await interactAt(628, 500);
   await page.waitForTimeout(250);
   await page.waitForFunction(() => __game.girls.filter(g => !g.dog).every(g => g.seatedAtTable), { timeout: 25000 }).catch(async (e) => { log('  lunch seating diagnostic: ' + JSON.stringify({ state: await state(), girls: await girls() })); throw e; });
-  await interactAt(620, 545);
+  await interactAt(628, 500);
   await clickChoice('I’ll handle it');
   await waitTask('lunch');
   assert(true, 'lunch completes');
   await page.waitForTimeout(3000);
 
-  await interactAt(610, 585);
+  await interactAt(580, 585);
   await clickChoice('I’ll handle it');
   await waitTask('dishes');
   assert(true, 'dishes complete');
@@ -153,10 +153,10 @@ function log(...args) { const line = args.join(' '); logs.push(line); console.lo
   await waitTask('afternoon');
   assert(true, 'afternoon activities complete');
 
-  await interactAt(620, 545);
+  await interactAt(628, 500);
   await page.waitForTimeout(250);
   await page.waitForFunction(() => __game.girls.filter(g => !g.dog).every(g => g.seatedAtTable), { timeout: 25000 });
-  await interactAt(620, 545);
+  await interactAt(628, 500);
   await clickChoice('I’ll handle it');
   await waitTask('dinner');
   assert(true, 'dinner completes');

@@ -17,7 +17,7 @@ const { launch } = require('./browser');
   const assert = (c, m) => { if (!c) throw new Error('ASSERT: ' + m); console.log('  ✓ ' + m); };
 
   console.log('coffee');
-  await page.evaluate(() => { __game.setFocus(20); __game.setTemper(100); __game.player.x = 575; __game.player.y = 455; __game.player.awake = true; });
+  await page.evaluate(() => { __game.setFocus(20); __game.setTemper(100); __game.player.x = 630; __game.player.y = 580; __game.player.awake = true; });
   await page.waitForTimeout(100);
   const note = await page.evaluate(() => document.querySelector('#dadNote').textContent);
   assert(/coffee/i.test(note), 'sidebar points Dad to coffee when focus is low');

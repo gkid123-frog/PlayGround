@@ -42,6 +42,8 @@ const { launch } = require('./browser');
   const kitchen = await page.evaluate(() => {
     const get = type => __game.props.find(p => p.type === type);
     const table = get('table'), chairs = get('chairs'), stove = get('stove'), fridge = get('fridge'), sink = get('sink'), coffee = get('coffee');
+    const dog = __game.girls.find(g => g.dog);
+    const free = (x, y, chairsOk = false) => !__game.blocked(x, y, dog, null, chairsOk);
     const girls = __game.girls.filter(g => !g.dog);
     const seats = [0,1,2].map(i => __game.taskSpot('lunch', girls[i]));
     const overlaps = (a,b) => a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
@@ -59,22 +61,34 @@ const { launch } = require('./browser');
         if (inTable([x1 + (x2-x1)*t, y1 + (y2-y1)*t])) crossesTable = true;
       }
     }
-    return { table, chairs, stove, fridge, sink, coffee, seats, route, crossesTable,
+    const applianceTop = Math.min(stove.y, fridge.y, sink.y);
+    const gaps = { top: table.y - 397, left: table.x - 332, right: 665 - (table.x + table.w), bottom: applianceTop - (chairs.y + chairs.h) };
+    let loopBlocked = null;
+    for (let x = 366; x <= 632; x += 6) for (const y of [427, 584]) if (!loopBlocked && !free(x, y)) loopBlocked = [x, y];
+    for (let y = 427; y <= 584; y += 6) for (const x of [366, 632]) if (!loopBlocked && !free(x, y)) loopBlocked = [x, y];
+    return { table, chairs, stove, fridge, sink, coffee, seats, route, crossesTable, gaps, loopBlocked,
       tableCenterX: table.x + table.w/2,
       appliancesLower: [stove, fridge, sink].every(p => p.y > table.y + table.h && p.y + p.h >= 660),
       applianceRow: [stove, fridge, sink].every(p => p.y === stove.y),
       appliancesClear: [stove, fridge, sink, chairs].every(p => !overlaps(p, table)),
       seatsAtChairs: seats.every(([x,y]) => !inTable([x,y]) && x >= chairs.x - 8 && x <= chairs.x + chairs.w + 35 && y > chairs.y && y < chairs.y + chairs.h),
-      seatsClear: seats.every(([x,y]) => !__game.blocked(x, y, null, null, true)),
+      seatsClear: seats.every(([x,y]) => free(x, y, true)),
       routeEndsAtSeat: route.length > 0 && route[route.length-1][0] === seats[1][0] && route[route.length-1][1] === seats[1][1],
-      coffeeReachable: !__game.blocked(575, 455) && Math.hypot(575 - (coffee.x+coffee.w/2), 455 - (coffee.y+coffee.h/2)) < 55 };
+      coffeeReachable: free(630, 580) && Math.hypot(630 - (coffee.x+coffee.w/2), 580 - (coffee.y+coffee.h/2)) < 55,
+      coffeeOnLowerWall: coffee.y === stove.y };
   });
   assert(kitchen.applianceRow && kitchen.appliancesLower, 'kitchen appliances line up along the lower wall');
   assert(Math.abs(kitchen.tableCenterX - 495) < 25 && kitchen.table.y > 450 && kitchen.table.y < 500, 'dining table sits in the middle of the kitchen');
+  assert(['top','left','right','bottom'].every(side => kitchen.gaps[side] >= 45), 'table leaves a generous gap on every side (' + JSON.stringify(kitchen.gaps) + ')');
+  assert(!kitchen.loopBlocked, 'characters can walk a full loop around the table' + (kitchen.loopBlocked ? ' (blocked at ' + kitchen.loopBlocked + ')' : ''));
   assert(kitchen.appliancesClear, 'dining table stays clear of the appliance row');
   assert(kitchen.seatsAtChairs && kitchen.seatsClear, 'meal seats sit on the chairs and stay walkable');
   assert(kitchen.routeEndsAtSeat && !kitchen.crossesTable, 'meal routing reaches a seat without crossing the table');
-  assert(kitchen.coffeeReachable, 'coffee maker stays reachable near the kitchen entrance');
+  assert(kitchen.coffeeOnLowerWall, 'coffee maker joins the lower counter run');
+  assert(kitchen.coffeeReachable, 'coffee maker stays reachable from the kitchen walkway');
+
+  const hallNearest = await page.evaluate(() => { __game.player.x = 500; __game.player.y = 350; return __game.nearest(); });
+  assert(!hallNearest, 'hallway does not reach through walls to the kitchen table');
 
   const bathroom = await page.evaluate(() => {
     const get = type => __game.props.find(p => p.type === type);
