@@ -100,22 +100,22 @@ function log(...args) { const line = args.join(' '); logs.push(line); console.lo
       else break;
     }
   };
-  await interactAt(90, 520);
+  await interactAt(120, 585);
   await callShowerGirl('Elaina');
   try { await page.waitForFunction(() => __game.state().showerIndex >= 1, { timeout: 25000 }); } catch (e) { throw new Error('Shower 1 timeout: ' + JSON.stringify(await girls())); }
   assert(true, 'Elaina finishes her shower and the sequence advances');
-  await interactAt(90, 520);
+  await interactAt(120, 585);
   await callShowerGirl('Elsie');
   try { await page.waitForFunction(() => __game.state().showerIndex >= 2, { timeout: 25000 }); } catch (e) { throw new Error('Shower 2 timeout: ' + JSON.stringify(await girls())); }
   assert(true, 'Elsie finishes her shower and the sequence advances');
-  await interactAt(90, 520);
+  await interactAt(120, 585);
   await callShowerGirl('Ellerle');
   await waitTask('showers').catch(async (e) => { log('  shower diagnostic: ' + JSON.stringify({ state: await state(), girls: await girls(), dlg: await dialog() })); throw e; });
   assert(true, 'all showers complete');
 
   log('laundry: delegation and cycle');
   await page.evaluate(() => { __game.tasks.laundry = false; __game.setWash(0); });
-  await interactAt(190, 520);
+  await interactAt(290, 480);
   d = await dialog();
   assert(/Wash & dry the laundry/.test(d.title), 'laundry dialog opens');
   await clickChoice('Ask a girl to help');

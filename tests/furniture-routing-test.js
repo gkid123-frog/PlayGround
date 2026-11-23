@@ -39,13 +39,38 @@ const { launch } = require('./browser');
   });
   assert(lifecycle.couch && lifecycle.table === true && lifecycle.mode === '', 'couch arrival sets couch mode and preserves separate meal-state tracking');
 
+  const mealRoute = await page.evaluate(() => {
+    const g = __game.girls.find(x => !x.dog);
+    g.x = 684; g.y = 521; g.route = [];
+    __game.setDestination(g, 545, 615, 'meal');
+    return { route: g.route, doorwayClear: !__game.blocked(684, 540) && !__game.blocked(646, 540) };
+  });
+  assert(mealRoute.route.some(([x,y]) => x === 684 && y === 540) && mealRoute.route.some(([x,y]) => x === 646 && y === 540) && mealRoute.doorwayClear,
+    'meal routing from the living room uses the clear lower kitchen doorway, away from the couch');
+
+  const bathroom = await page.evaluate(() => {
+    const get = type => __game.props.find(p => p.type === type);
+    const shower = get('tub'), washer = get('washer'), dryer = get('dryer'), sink = get('bathSink'), toilet = get('toilet');
+    const showerSpots = [0,1,2].map(i => __game.taskSpot('showers', __game.girls.filter(g => !g.dog)[i]));
+    const laundrySpots = [0,1,2].map(i => __game.taskSpot('laundry', __game.girls.filter(g => !g.dog)[i]));
+    return { shower, washer, dryer, sink, toilet, showerSpots, laundrySpots,
+      showerClear: showerSpots.every(([x,y]) => !__game.blocked(x,y)),
+      laundryClear: laundrySpots.every(([x,y]) => !__game.blocked(x,y)) };
+  });
+  assert(bathroom.shower.x < 110 && bathroom.shower.y > 540, 'shower sits in the bathroom’s lower-left corner');
+  assert(bathroom.washer.x > 250 && bathroom.dryer.x > 250 && bathroom.washer.y < bathroom.dryer.y, 'washer and dryer line the bathroom’s right side');
+  assert(bathroom.sink.y > 600 && bathroom.toilet.x < 100, 'bathroom sink is on the lower wall and toilet is on the left wall');
+  assert(bathroom.showerClear && bathroom.laundryClear, 'shower and laundry destinations remain clear of furniture');
+
   const collisions = await page.evaluate(() => {
     const couch = __game.props.find(p => p.type === 'couch');
     return {
       center: __game.blocked(couch.x+couch.w/2,couch.y+couch.h/2),
       divider: __game.blocked(332,500),
       doorwayOpen: __game.blocked(646,350) === false,
-      hallway: __game.blocked(477,350)
+      hallway: __game.blocked(477,350),
+      toilet: __game.blocked(60,460),
+      bathSink: __game.blocked(165,630)
     };
   });
   assert(collisions.center, 'couch blocks movement through its footprint');
