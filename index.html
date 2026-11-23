@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Turbo League</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:#07111f; font-family:Arial, Helvetica, sans-serif; }
+    canvas { display:block; width:100%; height:100%; }
+    #hud { position:fixed; inset:0; pointer-events:none; color:white; text-shadow:0 2px 4px #000b; }
+    #score { position:absolute; top:18px; left:50%; transform:translateX(-50%); display:flex; gap:10px; align-items:center; font-weight:900; font-size:28px; }
+    .team { width:62px; height:42px; display:grid; place-items:center; border-radius:8px; clip-path:polygon(10% 0,90% 0,100% 100%,0 100%); }
+    #blueScore { background:linear-gradient(135,#35aaff,#1762db); } #orangeScore { background:linear-gradient(135,#ffb42d,#ef5a22); }
+    #clock { width:76px; height:42px; display:grid; place-items:center; background:#111827cc; border-radius:8px; font-size:20px; }
+    #item { position:absolute; left:24px; bottom:24px; width:104px; height:104px; border-radius:24px; border:4px solid #fff4; background:linear-gradient(145deg,#e9f4ff33,#202a3eaa); display:grid; place-items:center; box-shadow:0 8px 30px #0008; }
+    #itemIcon { font-size:58px; filter:drop-shadow(0 4px 3px #0008); }
+    #itemLabel { position:absolute; bottom:-24px; font-size:13px; font-weight:900; letter-spacing:1px; }
+    #boostWrap { position:absolute; left:50%; bottom:24px; transform:translateX(-50%); width:min(420px,48vw); height:18px; border:2px solid #fff9; border-radius:20px; background:#1119; overflow:hidden; }
+    #boostFill { height:100%; width:100%; background:linear-gradient(90deg,#ffb000,#fff37a,#ff8a00); box-shadow:0 0 15px #ffa600; }
+    #speed { position:absolute; left:50%; bottom:47px; transform:translateX(-50%); font-weight:900; font-size:15px; }
+    #notice { position:absolute; left:50%; top:26%; transform:translate(-50%,-50%) scale(.8); font-size:clamp(42px,7vw,90px); font-weight:1000; opacity:0; transition:.25s; white-space:nowrap; }
+    #notice.show { opacity:1; transform:translate(-50%,-50%) scale(1); }
+    #countdown { position:absolute; left:50%; top:43%; transform:translate(-50%,-50%); font-size:100px; font-weight:1000; }
+    #controls { position:absolute; right:18px; bottom:18px; font-size:12px; text-align:right; opacity:.75; }
+    #start { position:fixed; inset:0; z-index:5; display:grid; place-items:center; background:radial-gradient(circle at 50% 40%,#164c7e 0,#091827 65%,#050a12 100%); color:white; }
+    #start.hidden { display:none; }
+    .panel { text-align:center; width:min(560px,88vw); }
+    .logo { font-size:clamp(50px,9vw,94px); line-height:.82; font-weight:1000; font-style:italic; letter-spacing:-5px; text-transform:uppercase; transform:skew(-6deg); text-shadow:0 7px 0 #0b3263,0 12px 30px #000; }
+    .logo span { color:#ffaf20; }
+    .sub { margin:22px 0 28px; color:#c7d9ed; letter-spacing:5px; font-weight:900; }
+    button { pointer-events:auto; border:0; border-radius:10px; background:linear-gradient(#ffd64b,#f7941d); color:#17202e; font-size:20px; font-weight:1000; padding:16px 42px; box-shadow:0 8px 0 #9a4d13,0 13px 30px #0007; cursor:pointer; }
+    #touch { display:none; position:fixed; inset:0; pointer-events:none; z-index:4; }
+    .stick { position:absolute; left:25px; bottom:25px; width:150px; height:150px; border-radius:50%; border:3px solid #fff5; background:#17345455; pointer-events:auto; }
+    .knob { position:absolute; width:64px; height:64px; border-radius:50%; left:43px; top:43px; background:#ffffff55; }
+    #touchBtns { position:absolute; right:20px; bottom:35px; display:flex; gap:14px; align-items:flex-end; pointer-events:auto; }
+    .touchBtn { width:78px; height:78px; border-radius:50%; border:3px solid #fff7; color:white; display:grid; place-items:center; font-weight:900; box-shadow:0 5px 18px #0007; }
+    #boostTouch { background:#f59e0bcc; } #itemTouch { background:#2d80f0cc; }
+    @media (pointer:coarse), (max-width:800px) { #touch { display:block; } #controls { display:none; } #item { width:72px;height:72px;left:12px;bottom:188px;border-radius:16px;} #itemIcon{font-size:40px;} #itemLabel{bottom:-19px;} #boostWrap{bottom:12px;width:40vw;} #speed{bottom:35px;} }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="hud">
+    <div id="score"><div id="blueScore" class="team">0</div><div id="clock">1:30</div><div id="orangeScore" class="team">0</div></div>
+    <div id="item"><div id="itemIcon">❓</div><div id="itemLabel">ITEM</div></div>
+    <div id="speed">0 MPH</div><div id="boostWrap"><div id="boostFill"></div></div>
+    <div id="notice"></div><div id="countdown"></div>
+    <div id="controls">WASD / ARROWS — DRIVE &nbsp; SPACE — BOOST &nbsp; E — ITEM</div>
+  </div>
+  <div id="start"><div class="panel"><div class="logo">TURBO <span>LEAGUE</span></div><div class="sub">MUSHROOM CUP DERBY</div><button id="play">PLAY NOW</button></div></div>
+  <div id="touch"><div class="stick" id="stick"><div class="knob" id="knob"></div></div><div id="touchBtns"><div class="touchBtn" id="boostTouch">BOOST</div><div class="touchBtn" id="itemTouch">ITEM</div></div></div>
+  <script src="game.js"></script>
+</body>
+</html>
