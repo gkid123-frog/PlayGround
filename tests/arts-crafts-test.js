@@ -19,22 +19,28 @@ const { launch } = require('./browser');
     const seats = __game.craftSeats();
     const kitchen = __game.props.find(p => p.type === 'table');
     const centers = seats.map(s => [s.x + s.w / 2, s.y + s.h / 2]);
+    const tcx = rt.x + rt.w / 2, tcy = rt.y + rt.h / 2;
+    const polar = centers.map(([x, y]) => ({ r: Math.hypot(x - tcx, y - tcy), a: (Math.atan2(y - tcy, x - tcx) * 180 / Math.PI + 360) % 360 })).sort((a, b) => a.a - b.a);
+    const gaps = polar.slice(1).map((p, i) => p.a - polar[i].a);
+    gaps.push(360 - (polar[polar.length - 1].a - polar[0].a));
     return {
       rt: rt && { x: rt.x, y: rt.y, w: rt.w, h: rt.h, task: rt.task || '' },
       seatCount: seats.length,
       seatRooms: centers.map(([x, y]) => __game.roomAt(x, y)),
-      seatClear: centers.map(([x, y]) => !__game.blocked(x, y)),
-      tableSolid: rt ? __game.blocked(rt.x + rt.w / 2, rt.y + rt.h / 2) : false,
+      seatSolid: centers.map(([x, y]) => __game.blocked(x, y)),
+      tableSolid: rt ? __game.blocked(tcx, tcy) : false,
       kitchenTask: kitchen && kitchen.task,
       seatCenters: centers,
+      center: [tcx, tcy],
+      radii: polar.map(p => p.r),
+      gaps,
       dadRoom: __game.roomAt(__game.player.x, __game.player.y)
     };
   });
-  assert(!!geometry.rt && geometry.rt.x > 665 && geometry.rt.y > 397, 'round table sits in the living room’s bottom half');
+  assert(!!geometry.rt && Math.abs(geometry.center[0] - 827) < 4 && Math.abs(geometry.center[1] - 348) < 4, 'round table is centered in the living room');
   assert(geometry.seatCount === 4 && geometry.seatRooms.every(r => r === 'living'), 'four chairs surround the round table in the living room');
-  assert(geometry.seatRooms.length === 4 && geometry.seatCenters.every(([, y]) => y > 397), 'every craft chair is in the bottom half of the living room');
-  assert(geometry.tableSolid, 'the round table blocks movement through its top');
-  assert(geometry.seatClear.every(Boolean), 'all four craft chairs stay walkable');
+  assert(geometry.radii.every(r => Math.abs(r - geometry.radii[0]) < 1) && geometry.gaps.every(g => Math.abs(g - 90) < 2), 'the four chairs are evenly spaced around the table');
+  assert(geometry.tableSolid && geometry.seatSolid.every(Boolean), 'the table and all four chairs block movement');
   assert(geometry.rt.task === '' && geometry.kitchenTask === 'meal', 'arts-and-crafts table stays separate from kitchen meal stations');
 
   await page.evaluate(() => {
@@ -42,7 +48,7 @@ const { launch } = require('./browser');
       g.x = 690; g.y = 445 + i * 32; g.route = []; g.routeMode = '';
       g.seatedAtCraft = false; g.seatedAtTable = false;
     });
-    __game.player.x = 786; __game.player.y = 500; __game.player.awake = true;
+    __game.player.x = 777; __game.player.y = 298; __game.player.awake = true;
   });
   await page.evaluate(() => __game.interact());
   const dialog = await page.evaluate(() => ({
@@ -70,6 +76,13 @@ const { launch } = require('./browser');
   assert(seated.dadCrafting && seated.dadSeat >= 0, 'Dad takes the fourth chair');
   assert(new Set([...seated.used, seated.dadSeat]).size === 4, 'the family fills all four chairs');
 
+  const dadBefore = await page.evaluate(() => ({ x: __game.player.x, y: __game.player.y }));
+  await page.keyboard.down('ArrowLeft');
+  await page.waitForTimeout(250);
+  await page.keyboard.up('ArrowLeft');
+  const dadAfter = await page.evaluate(() => ({ x: __game.player.x, y: __game.player.y }));
+  assert(Math.hypot(dadAfter.x - dadBefore.x, dadAfter.y - dadBefore.y) < 1, 'Dad cannot walk through the chair while seated');
+
   await page.evaluate(() => { __game.setFocus(50); __game.setTemper(50); });
   const before = await page.evaluate(() => ({
     focus: __game.state().focus,
@@ -79,11 +92,13 @@ const { launch } = require('./browser');
   await page.evaluate(() => __game.finishCrafts());
   const after = await page.evaluate(() => ({
     state: __game.state(),
-    girls: __game.girls.filter(g => !g.dog).map(g => ({ seated: g.seatedAtCraft, mood: g.mood, agenda: g.agenda }))
+    girls: __game.girls.filter(g => !g.dog).map(g => ({ seated: g.seatedAtCraft, mood: g.mood, agenda: g.agenda, blocked: __game.blocked(g.x, g.y) })),
+    player: { x: __game.player.x, y: __game.player.y, blocked: __game.blocked(__game.player.x, __game.player.y) }
   }));
-  assert(!after.state.craftActive && after.state.craftDone, 'the craft session wraps up cleanly');
+  assert(!after.state.craftActive && after.state.craftDone && !after.state.dadCrafting, 'the craft session wraps up cleanly');
   assert(after.state.focus > before.focus && after.state.temper > before.temper, 'arts and crafts rewards focus and patience');
   assert(after.girls.every((g, i) => !g.seated && g.mood > before.moods[i]), 'each girl leaves the table happier with her craft');
+  assert(after.girls.every(g => !g.blocked) && !after.player.blocked, 'everyone stands in a clear spot after crafts');
 
   assert(errors.length === 0, 'no page errors');
   await browser.close();
