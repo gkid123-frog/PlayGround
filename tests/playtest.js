@@ -196,13 +196,17 @@ function log(...args) { const line = args.join(' '); logs.push(line); console.lo
 
   // Put a girl next to Charlie and confirm hearts + mood boost.
   const heart = await page.evaluate(async () => {
+    __game.closeDialog();
     const c = __game.girls.find(g => g.dog);
     c.route = [];
     __game.charlieTimer.action = 'nap';
     const g = __game.girls[0];
     g.x = c.x + 10; g.y = c.y + 10; g.mood = 40; g.charlieNear = false;
-    await new Promise(r => setTimeout(r, 250));
-    return { heartLeft: g.heartLeft, mood: g.mood, near: g.charlieNear, bubble: g.bubble };
+    for (let i = 0; i < 60 && !(g.heartLeft > 0 && g.charlieNear); i++) {
+      await new Promise(r => setTimeout(r, 50));
+      if (__game.state().paused) __game.closeDialog();
+    }
+    return { heartLeft: g.heartLeft, mood: g.mood, near: g.charlieNear, bubble: g.bubble, paused: __game.state().paused, mini: __game.state().miniActive, ended: __game.state().ended };
   });
   assert(heart.heartLeft > 0 && heart.near, 'Charlie proximity shows hearts');
   assert(heart.mood > 40, 'Charlie proximity raises a girl’s mood');
