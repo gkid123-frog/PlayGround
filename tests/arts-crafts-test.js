@@ -100,6 +100,18 @@ const { launch } = require('./browser');
   assert(after.girls.every((g, i) => !g.seated && g.mood > before.moods[i]), 'each girl leaves the table happier with her craft');
   assert(after.girls.every(g => !g.blocked) && !after.player.blocked, 'everyone stands in a clear spot after crafts');
 
+  // Wrapping up before late arrivals reach the table must not leave anyone seated.
+  await page.evaluate(() => { __game.startCrafts(); __game.finishCrafts(); });
+  await page.waitForTimeout(1200);
+  const late = await page.evaluate(() => __game.girls.filter(g => !g.dog).map(g => ({ seated: g.seatedAtCraft, status: g.callStatus, mode: g.routeMode })));
+  assert(late.every(g => !g.seated && g.status !== 'crafting'), 'wrapping up early does not leave a girl stuck at the table');
+
+  // A chore in progress takes priority over arts and crafts.
+  await page.evaluate(() => __game.callGirls('lunch'));
+  await page.evaluate(() => __game.startCrafts());
+  const guarded = await page.evaluate(() => ({ craft: __game.state().craftActive, toast: document.querySelector('#toast').textContent }));
+  assert(!guarded.craft && /Finish the current chore/.test(guarded.toast), 'a chore in progress blocks a new craft session');
+
   assert(errors.length === 0, 'no page errors');
   await browser.close();
   console.log('ARTS AND CRAFTS TESTS PASSED');

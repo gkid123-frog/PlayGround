@@ -28,6 +28,10 @@ A single-file browser RPG about getting three kids through a busy morning. Open 
 
 Complete breakfast, showers, laundry, lunch, dishes, afternoon activities, and dinner in order, then tuck in all three girls and get Dad to bed.
 
+**Afternoon activities:** when the checklist reaches the afternoon, take Dad out the front door, call the girls into the yard, and play together. Finishing a sandcastle or a game of fetch completes the chore; simply letting the girls play outside for a few seconds also counts. Dinner unlocks once the family has had its afternoon outside.
+
+**Arts and crafts:** the living-room round table has four chairs. Interact with it and choose *Sit down and craft* to have Dad and the girls take a seat, make things together, and recover some focus and patience. A craft session can be wrapped up early from the same table.
+
 **Backyard breather:** walk Dad into the exit door (or interact with it) and confirm to head outside. Fresh air restores some focus and patience, lifts the girls’ moods, and banks a cooperation boost for Dad’s next request. Charlie patrols the fence and barks at passing cars. Call the girls out to the sandbox for a bonding boost, play fetch with Charlie, then head back inside when it’s time to tackle the next chore.
 
 ## Tests
@@ -37,4 +41,4 @@ npm install
 npm test
 ```
 
-The suite starts a local static server and runs the full-day browser playtest, the mechanics checks, the Charlie nap/obstacle checks, the opening-break regression test, the backyard purpose checks, and the mobile touch-layout checks. See `tests/` for the individual scripts.
+The suite starts a local static server and runs the full-day browser playtest, the mechanics checks, the Charlie nap/obstacle checks, the furniture-routing checks, the living-room arts-and-crafts checks, the opening-break regression test, the backyard purpose checks, and the mobile touch-layout checks. See `tests/` for the individual scripts.

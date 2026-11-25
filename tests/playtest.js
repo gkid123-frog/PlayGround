@@ -154,9 +154,21 @@ function log(...args) { const line = args.join(' '); logs.push(line); console.lo
     __game.goOutside();
     __game.callGirlsOutside();
     __game.assignYardPlay();
-    __game.completeTask('afternoon');
+    __game.girls.filter(g => !g.dog).forEach((g, i) => { g.x = 200 + i * 30; g.y = 300; g.route = []; });
   });
-  await page.waitForFunction(() => __game.state().scene === 'yard' && __game.state().girlsOutside && __game.tasks.afternoon, { timeout: 25000 });
+  await page.waitForFunction(() => __game.state().scene === 'yard' && __game.state().girlsOutside, { timeout: 25000 });
+  await interactAt(505, 495);
+  d = await dialog();
+  assert(d.choices.some(c => /Build a sandcastle together/.test(c)), 'the afternoon sandbox activity is offered');
+  await clickChoice('Build a sandcastle together');
+  assert((await page.evaluate(() => __game.miniState())).type === 'sandcastle', 'the afternoon sandcastle game opens');
+  for (let drop = 1; drop <= 5; drop++) {
+    await page.evaluate(() => __game.miniPrimary());
+    await page.waitForFunction(n => __game.miniState().sandcastle.drops >= n, drop);
+  }
+  await page.waitForFunction(() => __game.miniState().phase === 'result', { timeout: 5000 });
+  await page.evaluate(() => __game.miniPrimary());
+  await waitTask('afternoon', 5000);
   assert(true, 'yard afternoon activities complete');
   await page.evaluate(() => { __game.sendGirlsInside(); __game.goInside(); });
 

@@ -106,6 +106,7 @@ const { launch } = require('./browser');
   assert(sandbox.outsidePlayBonus >= 1, 'a successful sandcastle banks cooperation');
   await page.evaluate(() => __game.miniPrimary());
   assert(/Sandcastle time/i.test(await toast()), 'sandcastle result explains its benefits');
+  assert((await page.evaluate(() => __game.tasks)).afternoon === false, 'a sandcastle outside the afternoon slot does not skip chores');
 
   const sandboxMoods = (await girls()).map(g => g.mood);
   await page.evaluate(() => __game.startSandcastleGame());
