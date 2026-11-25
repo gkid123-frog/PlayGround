@@ -23,6 +23,13 @@ const { launch } = require('./browser');
     const polar = centers.map(([x, y]) => ({ r: Math.hypot(x - tcx, y - tcy), a: (Math.atan2(y - tcy, x - tcx) * 180 / Math.PI + 360) % 360 })).sort((a, b) => a.a - b.a);
     const gaps = polar.slice(1).map((p, i) => p.a - polar[i].a);
     gaps.push(360 - (polar[polar.length - 1].a - polar[0].a));
+    const dog = __game.girls.find(g => g.dog);
+    const pathBlocked = [];
+    for (let x = 660; x <= 960; x += 4)
+      if (__game.blocked(x, 350, dog)) pathBlocked.push([x, 350]);
+    for (const y of [330, 370])
+      for (let x = 685; x <= 960; x += 4)
+        if (__game.blocked(x, y, dog)) pathBlocked.push([x, y]);
     return {
       rt: rt && { x: rt.x, y: rt.y, w: rt.w, h: rt.h, task: rt.task || '' },
       seatCount: seats.length,
@@ -34,10 +41,15 @@ const { launch } = require('./browser');
       center: [tcx, tcy],
       radii: polar.map(p => p.r),
       gaps,
+      pathBlocked,
+      clusterTop: Math.min(...seats.map(s => s.y)),
+      clusterBottom: Math.max(...seats.map(s => s.y + s.h)),
       dadRoom: __game.roomAt(__game.player.x, __game.player.y)
     };
   });
-  assert(!!geometry.rt && Math.abs(geometry.center[0] - 827) < 4 && Math.abs(geometry.center[1] - 348) < 4, 'round table is centered in the living room');
+  assert(!!geometry.rt && Math.abs(geometry.center[0] - 827) < 4 && Math.abs(geometry.center[1] - 540) < 4, 'round table sits toward the living room’s lower wall');
+  assert(geometry.clusterTop > 390 && geometry.clusterBottom < 650, 'table and chairs leave the hallway-to-exit corridor open');
+  assert(geometry.pathBlocked.length === 0, 'a clear path runs from the hallway doorway to the exterior door' + (geometry.pathBlocked.length ? ' (blocked at ' + JSON.stringify(geometry.pathBlocked[0]) + ')' : ''));
   assert(geometry.seatCount === 4 && geometry.seatRooms.every(r => r === 'living'), 'four chairs surround the round table in the living room');
   assert(geometry.radii.every(r => Math.abs(r - geometry.radii[0]) < 1) && geometry.gaps.every(g => Math.abs(g - 90) < 2), 'the four chairs are evenly spaced around the table');
   assert(geometry.tableSolid && geometry.seatSolid.every(Boolean), 'the table and all four chairs block movement');
@@ -48,7 +60,7 @@ const { launch } = require('./browser');
       g.x = 690; g.y = 445 + i * 32; g.route = []; g.routeMode = '';
       g.seatedAtCraft = false; g.seatedAtTable = false;
     });
-    __game.player.x = 777; __game.player.y = 298; __game.player.awake = true;
+    __game.player.x = 870; __game.player.y = 475; __game.player.awake = true;
   });
   await page.evaluate(() => __game.interact());
   const dialog = await page.evaluate(() => ({
