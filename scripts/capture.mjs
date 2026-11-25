@@ -8,6 +8,13 @@ if (!url || !output) {
   process.exit(1);
 }
 
+try {
+  new URL(url);
+} catch {
+  console.error(`Invalid CAPTURE_URL: ${url}`);
+  process.exit(1);
+}
+
 const runtime = join(process.env.HOME || '', '.local/share/omgithub-playwright');
 const require = createRequire(join(runtime, 'package.json'));
 const { chromium } = require('playwright');
@@ -23,14 +30,42 @@ mkdirSync(output, { recursive: true });
 const startedAt = Date.now();
 const mark = (label, from) =>
   console.log(`[capture] ${label}: ${((Date.now() - from) / 1000).toFixed(2)}s`);
-const transient = (error) => Object.assign(error, { exitCode: 75 });
+
+const defect = (message) => Object.assign(new Error(message), { exitCode: 1 });
+const transient = (message) =>
+  Object.assign(message instanceof Error ? message : new Error(message), { exitCode: 75 });
+
+// Cloudflare and network layers use several status codes for temporary tunnel
+// problems (for example HTTP 525 for a TLS handshake failure).
+const temporaryStatus = (status) =>
+  [408, 425, 429].includes(status) || (status >= 500 && status <= 599);
+
+const responseFailure = (message, status) => {
+  const error = new Error(message);
+  error.exitCode = temporaryStatus(status) ? 75 : 1;
+  return error;
+};
+
+const navigationFailure = (error) => {
+  if (
+    error?.name === 'TimeoutError' ||
+    /net::ERR_|ECONNREFUSED|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up|browser has been closed|Target closed/i.test(
+      String(error),
+    )
+  ) {
+    return transient(error);
+  }
+  return error;
+};
 
 let browser;
 try {
   const launchAt = Date.now();
   browser = await chromium
     .launch({ ...config.browser.launchOptions, timeout: 30000 })
-    .catch(transient);
+    .catch((error) => {
+      throw transient(error);
+    });
   mark('browser launch', launchAt);
 
   for (const [name, width, height] of [
@@ -38,41 +73,84 @@ try {
     ['mobile', 390, 844],
   ]) {
     const pageAt = Date.now();
-    const page = await browser.newPage({ viewport: { width, height } }).catch(transient);
+    const page = await browser.newPage({ viewport: { width, height } }).catch((error) => {
+      throw transient(error);
+    });
     page.setDefaultTimeout(30000);
 
     const failures = [];
-    page.on('pageerror', (error) => failures.push(error.message));
+    page.on('pageerror', (error) => {
+      failures.push({ message: error.message, exitCode: 1 });
+    });
     page.on('response', (response) => {
-      if (
-        response.status() >= 400 &&
-        new URL(response.url()).origin === new URL(url).origin
-      ) {
-        failures.push(`HTTP ${response.status()}: ${response.url()}`);
+      try {
+        if (
+          response.status() >= 400 &&
+          new URL(response.url()).origin === new URL(url).origin
+        ) {
+          failures.push({
+            message: `HTTP ${response.status()}: ${response.url()}`,
+            exitCode: temporaryStatus(response.status()) ? 75 : 1,
+          });
+        }
+      } catch {
+        // Ignore malformed or non-HTTP resource URLs.
       }
     });
 
     let response;
-    try {
-      response = await page.goto(url, { waitUntil: 'load', timeout: 45000 });
-    } catch (error) {
-      if (error.name === 'TimeoutError' || /net::ERR_/.test(String(error))) transient(error);
-      throw error;
-    }
-    if (!response) transient(new Error('No response from the preview'));
-    if (!response.ok()) {
-      const status = response.status();
-      const error = new Error(`HTTP ${status} loading preview`);
-      error.exitCode = [408, 429, 500, 502, 503, 504].includes(status) ? 75 : 1;
-      throw error;
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      // Ignore transient failures from earlier navigation attempts.
+      failures.length = 0;
+      try {
+        response = await page.goto(url, { waitUntil: 'load', timeout: 45000 });
+      } catch (error) {
+        response = null;
+        error = navigationFailure(error);
+        if (error.exitCode === 75 && attempt < 4) {
+          console.log(`[capture] ${name} navigation retry ${attempt}: ${error.message}`);
+          await page.waitForTimeout(attempt * 1500);
+          continue;
+        }
+        throw error;
+      }
+      if (!response) {
+        const error = transient('No response from the preview');
+        if (attempt < 4) {
+          console.log(`[capture] ${name} navigation retry ${attempt}: ${error.message}`);
+          await page.waitForTimeout(attempt * 1500);
+          continue;
+        }
+        throw error;
+      }
+      if (!response.ok()) {
+        const error = responseFailure(
+          `HTTP ${response.status()} loading preview`,
+          response.status(),
+        );
+        if (error.exitCode === 75 && attempt < 4) {
+          console.log(`[capture] ${name} navigation retry ${attempt}: ${error.message}`);
+          await page.waitForTimeout(attempt * 1500);
+          continue;
+        }
+        throw error;
+      }
+      break;
     }
     mark(`${name} navigation`, pageAt);
+    if (!response?.ok()) {
+      throw transient('No successful response from the preview');
+    }
 
     const readyAt = Date.now();
-    await page.locator('body').waitFor({ state: 'visible', timeout: 30000 });
-    await page.waitForFunction(() => document.fonts.status === 'loaded', null, {
-      timeout: 30000,
-    });
+    try {
+      await page.locator('body').waitFor({ state: 'visible', timeout: 30000 });
+      await page.waitForFunction(() => document.fonts.status === 'loaded', null, {
+        timeout: 30000,
+      });
+    } catch (error) {
+      throw defect(`Page content did not become ready: ${error.message}`);
+    }
 
     // Enter the game when the intro is present so the capture shows real gameplay.
     const start = page.locator('#startGame');
@@ -95,31 +173,52 @@ try {
         null,
         { timeout: 30000 },
       );
+      await page.waitForFunction(
+        () => {
+          const canvas = document.querySelector('#game');
+          if (!canvas) return false;
+          const context = canvas.getContext('2d');
+          if (!context) return false;
+          const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+          let first = null;
+          for (let i = 0; i < data.length; i += 4 * 4099) {
+            const sample = `${data[i]},${data[i + 1]},${data[i + 2]}`;
+            if (first === null) first = sample;
+            else if (sample !== first) return true;
+          }
+          return false;
+        },
+        null,
+        { timeout: 30000 },
+      );
     } catch (error) {
-      throw Object.assign(new Error(`Game canvas did not render: ${error.message}`), {
-        exitCode: 1,
-      });
+      throw defect(`Game canvas did not render: ${error.message}`);
     }
     await page.waitForTimeout(2000);
     mark(`${name} render`, readyAt);
 
     if (failures.length) {
+      const temporary = failures.some((failure) => failure.exitCode === 75);
       throw Object.assign(
-        new Error(`Rendering defects on ${name}: ${failures.join('; ')}`),
-        { exitCode: 1 },
+        new Error(
+          `Rendering defects on ${name}: ${failures
+            .map((failure) => failure.message)
+            .join('; ')}`,
+        ),
+        { exitCode: temporary ? 75 : 1 },
       );
     }
 
     const shotAt = Date.now();
-    await page
-      .screenshot({ path: join(output, `final-${name}.png`), timeout: 30000 })
-      .catch((error) => {
-        if (error.name === 'TimeoutError' || !browser.isConnected()) transient(error);
-        throw error;
-      });
+    try {
+      await page.screenshot({ path: join(output, `final-${name}.png`), timeout: 30000 });
+    } catch (error) {
+      if (error?.name === 'TimeoutError' || !browser.isConnected()) throw transient(error);
+      throw defect(`Screenshot failed for ${name}: ${error.message}`);
+    }
     const size = statSync(join(output, `final-${name}.png`)).size;
     if (size < 24) {
-      throw Object.assign(new Error(`Screenshot too small for ${name}`), { exitCode: 1 });
+      throw defect(`Screenshot too small for ${name}`);
     }
     mark(`${name} screenshot`, shotAt);
     await page.close();
